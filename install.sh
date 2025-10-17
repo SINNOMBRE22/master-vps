@@ -36,7 +36,7 @@ echo -e "\033[1;33m]\033[1;31m -\033[1;32m 100%\033[1;37m"
 }
 
 instalar_fun () {
-cd /etc/vps-master && bash cabecalho --instalar
+cd /etc/master-vps && bash cabecalho --instalar
 }
 
 elimined_fun () {
