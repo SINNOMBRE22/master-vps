@@ -60,7 +60,7 @@ service apache2 restart > /dev/null 2>&1
 }
 
 valid_fun () {
-[[ -d /etc/vps-master ]] && rm -rf /etc/vps-master
+[[ -d /etc/vps-master ]] && rm -rf /etc/master-vps
 mkdir /etc/vps-master
 cd /etc/vps-master
 echo "cd /etc/vps-master && bash ./menu" > /bin/menu
