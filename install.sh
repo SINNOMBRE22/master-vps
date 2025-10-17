@@ -61,8 +61,8 @@ service apache2 restart > /dev/null 2>&1
 
 valid_fun () {
 [[ -d /etc/vps-master ]] && rm -rf /etc/master-vps
-mkdir /etc/vps-master
-cd /etc/vps-master
+mkdir /etc/master-vps
+cd /etc/master-vps
 echo "cd /etc/vps-master && bash ./menu" > /bin/menu
 echo "cd /etc/vps-master && bash ./menu" > /bin/vps
 chmod +x /bin/menu
