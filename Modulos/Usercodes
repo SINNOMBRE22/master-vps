@@ -1,0 +1,540 @@
+#!/bin/bash
+
+# ════════════════════════════════════════════════════════════════════
+# VPS MÁSTER - Gestor de Usuarios y Conexiones
+# Creado por: SINNOMBRE22
+# Fecha: 2025-10-17 23:11:39 UTC
+# Compatible con: Ubuntu 22.04 LTS
+# ════════════════════════════════════════════════════════════════════
+
+# Directorios de configuración
+dir_user="/etc/vps-master/userDIR"
+tempousers="/tmp/tempo_conexao"
+usr_pids_var="/etc/vps-master/userDIR"
+net_dir="/etc/vps-master/userDIR/usr_cnx"
+
+# Definir colores
+cor[0]="\033[0m"      # Reset
+cor[1]="\033[1;36m"   # Cyan
+cor[2]="\033[1;33m"   # Amarillo
+cor[3]="\033[1;31m"   # Rojo
+cor[4]="\033[1;37m"   # Blanco
+cor[5]="\033[1;32m"   # Verde
+cor[6]="\033[1;34m"   # Azul
+cor[7]="\033[1;35m"   # Magenta
+
+# Crear directorios si no existen
+[[ ! -d "$dir_user" ]] && mkdir -p "$dir_user"
+[[ ! -d "$usr_pids_var" ]] && mkdir -p "$usr_pids_var"
+
+fun_ovpn_onl () {
+for userovpn in `cat /etc/passwd | grep ovpn | awk -F: '{print $1}'`; do
+us=$(cat /etc/openvpn/openvpn-status.log 2>/dev/null | grep $userovpn | wc -l)
+if [ "$us" != "0" ]; then
+echo "$userovpn"
+fi
+done
+}
+
+net_meter () {
+if [ ! -e "$net_dir" ]; then
+echo -e "${cor[5]} No hay datos de conexión disponibles"
+echo -e "${cor[1]}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${cor[0]}"
+return
+fi
+net_cent="/tmp/porcentagem"
+sed -i '/^$/d' $net_dir
+ [[ ! -e "$net_cent" ]] && touch $net_cent
+ while read cent; do
+  echo "$cent" | awk '{print $2}' >> $net_cent
+ done < $net_dir
+ por_cent=$(paste -sd+ $net_cent | bc)
+ rm $net_cent
+bb=$(printf '%-18s' "DESCARGA (MB)")
+aa=$(printf '%-19s' "USUARIO")
+cc=$(printf '%-18s' "PORCENTAJE")
+echo -e "${cor[1]}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${cor[0]}"
+echo -e "\033[1;33m $aa $bb $cc"
+echo -e "${cor[1]}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${cor[0]}"
+while read u; do
+b=$(printf '%-18s' "$(($(echo $u | awk '{print $2}')/970)) - MB")
+a=$(printf '%-20s' "$(echo $u | awk '{print $1}')")
+[[ "$por_cent" = "0" || "$por_cent" = "" ]] && por_cent="1"
+pip=$(echo $u | awk '{print $2}')
+[[ "$pip" = "" || "$pip" = "0" ]] && pip="1"
+percent_user=$(($pip*100/$por_cent)) > /dev/null 2>&1
+[[ $percent_user = "0" ]] && percent_user="1"
+c=$(printf '%-18s' "$percent_user %%")
+if [ "$(($(echo $u | awk '{print $2}')/970))" -gt "1" ]; then
+echo -e "\033[1;32m $a \033[1;31m$b \033[1;32m$c"
+fi
+done < $net_dir
+[[ "$(cat $net_dir)" = "" ]] && echo -e "${cor[5]} No hay datos disponibles"
+echo -e "${cor[1]}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${cor[0]}"
+unset net_dir
+}
+
+drop_kill () {
+user="$1"
+tmp_verifica="./tmp_tmp"
+function_dropb | grep "$user" | awk '{print $2}' > $tmp_verifica
+echo "$user"
+    for pid in `cat  $tmp_verifica`; do
+    kill $pid
+    done
+rm $tmp_verifica
+}
+
+fun_time_user () {
+declare -A data
+tempousers="/tmp/tempo_conexao"
+usr_pids_var="/etc/vps-master/userDIR"
+user_x="$1"
+if [ -e $usr_pids_var/$user_x.pid2 ]; then
+source $usr_pids_var/$user_x.pid2
+[[ ${data[$user_x]} != +([0-9]) ]] && data[$user_x]="0"
+_data_now=$(date +%s)
+time[$user_x]=$(($_data_now - ${data[$user_x]}))
+else
+time[$user_x]="0"
+fi
+}
+
+function_dropb () {  
+port_dropbear=`ps aux | grep dropbear | awk NR==1 | awk '{print $17;}'`
+[[ $port_dropbear = "" ]] && return
+log=/var/log/auth.log
+loginsukses='Password auth succeeded'
+echo ' '
+pids=`ps ax |grep dropbear |grep  " $port_dropbear" |awk -F" " '{print $1}'`
+for pid in $pids
+do
+    pidlogs=`grep $pid $log |grep "$loginsukses" |awk -F" " '{print $3}'`
+    i=0
+    for pidend in $pidlogs
+    do
+    let i=i+1
+    done
+    if [ $pidend ]; then
+       login=`grep $pid $log |grep "$pidend" |grep "$loginsukses"`
+       PID=$pid
+       user=`echo $login |awk -F" " '{print $10}' | sed -r "s/'/ /g"`
+       waktu=`echo $login |awk -F" " '{print $2"-"$1,$3}'`
+       while [ ${#waktu} -lt 13 ]; do
+       waktu=$waktu" "
+       done
+       while [ ${#user} -lt 16 ]; do
+       user=$user" "
+       done
+       while [ ${#PID} -lt 8 ]; do
+       PID=$PID" "
+       done
+     echo "$user $PID $waktu"
+    fi
+done
+echo ""
+return
+}
+
+function_1 () {
+echo -e "${cor[1]}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${cor[0]}"
+echo -e "${cor[4]} CREAR NUEVO USUARIO"
+echo -e "${cor[1]}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${cor[0]}"
+for u in `awk -F : '$3 > 900 { print $1 }' /etc/passwd |grep -v "nobody" |grep -vi polkitd |grep -vi system-`; do
+echo -e "${cor[5]} $u"
+done
+echo -e "${cor[1]}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${cor[0]}"
+echo -e "${cor[4]} USUARIOS ACTUALES"
+echo -e "${cor[1]}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${cor[0]}"
+echo -e "${cor[5]} Ingrese nombre del usuario"; read -p " ≈≈≈≈≈> " name
+if [ -z $name ]; then
+echo -e "${cor[5]} El nombre no puede estar vacío ${cor[0]}" 
+return
+fi
+if cat /etc/passwd |grep $name: |grep -vi [a-z]$name |grep -v [0-9]$name > /dev/null
+then
+echo -e "${cor[5]} El usuario ya existe ${cor[0]}"
+return
+fi
+echo -e "${cor[1]}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${cor[0]}"
+echo -e "${cor[5]} Ingrese contraseña para $name"
+read -p " Contraseña: " pass
+echo -e "${cor[1]}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${cor[0]}"
+echo -e "${cor[5]} Ingrese duración en días para $name"
+read -p " Días: " daysrnf
+echo -e "${cor[1]}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${cor[0]}"
+echo -e "${cor[5]} Ingrese límite de conexiones para $name"
+read -p " Límite: " limit
+echo -e "${cor[1]}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${cor[0]}"
+
+valid=$(date '+%C%y-%m-%d' -d " +$daysrnf days")
+datexp=$(date "+%d/%m/%Y" -d " +$daysrnf days")
+
+useradd -M -s /bin/false $name -e $valid
+(echo $pass; echo $pass)|passwd $name 2>/dev/null
+
+echo -e "${cor[5]} IP => ${cor[4]}$(hostname -I | awk '{print $1}')"
+echo -e "${cor[5]} Usuario => ${cor[4]}$name"
+echo -e "${cor[5]} Contraseña => ${cor[4]}$pass"
+echo -e "${cor[5]} Límite => ${cor[4]}$limit"
+echo -e "${cor[5]} Vencimiento => ${cor[4]}$datexp"
+echo -e "${cor[1]}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${cor[0]}"
+
+echo "contraseña: $pass" > $dir_user/$name
+echo "límite: $limit" >> $dir_user/$name
+echo "fecha: $valid" >> $dir_user/$name
+
+echo -ne "${cor[2]}"
+return
+}
+
+function_2 () {
+echo -e "${cor[1]}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${cor[0]}"
+echo -e "${cor[4]} ELIMINAR USUARIO"
+echo -e "${cor[1]}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${cor[0]}"
+echo -e "${cor[2]} |1| >${cor[3]} Eliminar un usuario"
+echo -e "${cor[2]} |2| >${cor[3]} Eliminar todos los usuarios"
+echo -e "${cor[1]}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${cor[0]}"
+echo -ne "${cor[6]}"
+read -p "Seleccione opción: " opc_del
+if [ "$opc_del" = "1" ]; then
+echo -e "${cor[1]}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${cor[0]}"
+echo -e "${cor[4]} SELECCIONE USUARIO"
+echo -e "${cor[1]}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${cor[0]}"
+for u in `awk -F : '$3 > 900 { print $1 }' /etc/passwd |grep -v "nobody" |grep -vi polkitd |grep -vi system-`; do
+echo -e "${cor[5]} $u"
+done
+read -p "Nombre del usuario: " name
+if [ "$name" = "" ]; then
+return
+fi
+
+userdel --force $name > /dev/null 2>/dev/null
+kill -9 `ps aux |grep -vi '[a-z]$name' |grep -vi '$name[a-z]' |grep -v '[1-9]$name' |grep -v '$name[1-9]' |grep $name |awk {'print $2'}` 2> /dev/null
+pid_kill=$(function_dropb | grep "$name" | awk '{print $2}')
+if [ "$pid_kill" != "" ]; then
+drop_kill $name
+fi
+if [ -e $dir_user/$name ]; then
+rm $dir_user/$name
+fi
+echo -e "${cor[1]}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${cor[0]}"
+echo -e " $name ${cor[2]} ELIMINADO "
+echo -e "${cor[1]}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${cor[0]}"
+return
+fi
+ if [ "$opc_del" = "2" ]; then
+for name in `awk -F : '$3 > 900 { print $1 }' /etc/passwd |grep -v "nobody" |grep -vi polkitd |grep -vi system-`; do
+echo -e "${cor[1]}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${cor[0]}"
+echo -e "${cor[5]} ¿Eliminar usuario $name ?"
+read -p " [S/N]: " _remover_
+if [[ "$_remover_" = "s" || "$_remover_" = "S" ]]; then
+userdel --force $name > /dev/null 2>&1
+kill -9 `ps aux |grep -vi '[a-z]$name' |grep -vi '$name[a-z]' |grep -v '[1-9]$name' |grep -v '$name[1-9]' |grep $name |awk {'print $2'}`  > /dev/null 2>&1
+pid_kill=$(function_dropb | grep "$name" | awk '{print $2}')
+if [ "$pid_kill" != "" ]; then
+drop_kill $name
+fi
+if [ -e $dir_user/$name ]; then
+rm $dir_user/$name
+fi
+echo -e "\033[1;37m $name ${cor[5]} ELIMINADO"
+sleep 0.3s
+fi
+done
+echo -e "${cor[1]}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${cor[0]}"
+else
+return
+fi
+}
+
+function_3 () {
+echo -e "${cor[1]}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${cor[0]}"
+echo -e "${cor[4]} EDITAR USUARIO"
+echo -e "${cor[1]}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${cor[0]}"
+for u in `awk -F : '$3 > 900 { print $1 }' /etc/passwd |grep -v "nobody" |grep -vi polkitd |grep -vi system-`; do
+echo -e "${cor[5]} $u"
+done
+read -p "Seleccione usuario: " namer
+if [ "$namer" = "" ]; then
+return
+fi
+echo -e "${cor[5]} Opciones para $namer"
+echo -e "${cor[2]} |1| >${cor[3]} Cambiar límite de conexiones"
+echo -e "${cor[2]} |2| >${cor[3]} Cambiar fecha de vencimiento"
+echo -e "${cor[2]} |3| >${cor[3]} Cambiar contraseña"
+echo -e "${cor[1]}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${cor[0]}"
+read -p "Seleccione opción: " _opt
+if [ "$_opt" = "1" ]; then
+read -p "Nuevo límite: " new_limit
+ if [ "$new_limit" = "" ]; then
+echo -e "${cor[5]} El límite no puede estar vacío"
+return
+ fi
+usr_var=$(cat $dir_user/$namer | grep -v "límite:")
+echo "$usr_var" > $dir_user/$namer
+echo "límite: $new_limit" >> $dir_user/$namer
+echo -e "${cor[5]} Límite actualizado"
+unset new_limit
+unset usr_var
+return
+fi
+if [ "$_opt" = "2" ]; then
+echo -e "${cor[5]} Ingrese días adicionales"
+read -p ": " date
+ if [ "$date" = "" ]; then
+echo -e "${cor[5]} No puede estar vacío"
+return
+ fi
+datexp=$(date "+%d/%m/%Y" -d " + $date days")
+valid=$(date '+%C%y-%m-%d' -d " + $date days")
+chage -E $valid $namer 2> /dev/null
+echo -e "${cor[5]} Fecha actualizada"
+usr_var=$(cat $dir_user/$namer | grep -v "fecha")
+echo -e "$usr_var" > $dir_user/$namer
+echo -e "fecha: $valid" >> $dir_user/$namer
+echo -e "$namer: $datexp"
+unset datexp
+unset valid
+unset usr_var
+return
+fi
+if [ "$_opt" = "3" ]; then
+echo -e "${cor[5]} Ingrese nueva contraseña para $namer"
+read -p " : " nova_senha
+if [ "$nova_senha" = "" ]; then
+echo -e "${cor[5]} La contraseña no puede estar vacía"
+return
+fi
+(echo "$nova_senha" ; echo "$nova_senha" ) |passwd $namer > /dev/null 2>/dev/null
+usr_var1=$(cat $dir_user/$namer | grep -v "contraseña")
+echo -e "$usr_var1" > $dir_user/$namer
+echo -e "contraseña: $nova_senha" >> $dir_user/$namer
+echo -e "${cor[5]} Contraseña actualizada"
+unset nova_senha
+unset usr_var1
+return
+else
+echo -e "${cor[5]} Opción inválida"
+fi
+}
+
+function_4 () {
+echo -e "${cor[1]}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${cor[0]}"
+echo -e "${cor[4]} USUARIO       CONTRASEÑA      LÍMITE         TIEMPO         VENCIMIENTO"
+echo -e "${cor[1]}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${cor[0]}"
+_cont="0"
+if [ ! -e $tempousers ]; then
+touch $tempousers
+fi
+for namer in `awk -F : '$3 > 900 { print $1 }' /etc/passwd |grep -v "nobody" |grep -vi polkitd |grep -vi system-`; do
+if [ "$namer" = "" ]; then
+break
+fi
+if [ -e $dir_user/$namer ]; then
+_sen=$(cat $dir_user/$namer | grep "contraseña" | awk '{print $2}')
+_limit=$(cat $dir_user/$namer | grep "límite" | awk '{print $2}')
+else
+_limit="N/A"
+_sen="N/A"
+fi
+ if [ -z "$_limit" ]; then
+_limit="N/A"
+ fi
+ if [ -z "$_sen" ]; then
+_sen="N/A"
+ fi
+data_sec=$(date +%s)
+data_user=$(chage -l "$namer" |grep -i "cuenta" |awk -F ":" '{print $2}')
+if [ "$data_user" = " nunca" ]; then
+dias_user="\033[1;37m Sin vencer"
+ else
+data_user_sec=$(date +%s --date="$data_user")
+ if [ "$data_sec" -gt "$data_user_sec" ]; then
+dias_user="\033[1;31mVencido"
+else
+variavel_soma=$(($data_user_sec - $data_sec))
+dias_use=$(($variavel_soma / 86400))
+dias_user="\033[1;32m$dias_use días"
+ fi
+fi
+unset SEC
+unset MIN
+unset HOR
+SEC=$(cat $tempousers | grep "$namer" | awk '{print $2}')
+MIN=$(($SEC / 60))
+SEC=$(($SEC - $MIN * 60))
+HOR=$(($MIN / 60))
+MIN=$(($MIN - $HOR * 60))
+txto[1]=$(printf '%-12s' "$namer")
+txto[2]=$(printf '%-14s' "$_sen")
+txto[3]=$(printf '%-14s' "$_limit")
+txto[4]=$(printf '%-14s' "${HOR}h:${MIN}m:${SEC}s")
+txto[5]=$(printf '%-2s' "$dias_user")
+echo -e " ${cor[2]} > ${cor[5]} ${txto[1]} ${txto[2]} ${txto[3]} ${txto[4]} ${txto[5]}"
+_cont=$(($_cont + 1))
+done
+echo -e "${cor[1]}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${cor[0]}"
+echo -e " ∆ Total de usuarios: $_cont"
+echo -e "${cor[1]}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${cor[0]}"
+unset txt_
+}
+
+function_5 () {
+echo -e "${cor[1]}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${cor[0]}"
+msga[1]=$(printf '%-12s' "USUARIO")
+msga[2]=$(printf '%-9s' "CONEXIONES")
+msga[3]=$(printf '%-6s' "TIEMPO")
+echo -e "${cor[4]} ${msga[1]} ${msga[2]} ${msga[3]} ${cor[0]}"
+unset msga
+echo -e "${cor[1]}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${cor[0]}"
+[[ ! -e $tempousers ]] && touch $tempousers
+_data_now=$(date +%s)
+for user in `awk -F : '$3 > 900 { print $1 }' /etc/passwd |grep -v "nobody" |grep -vi polkitd |grep -vi system-`; do
+unset ssh
+ssh+="$(ps -u $user|grep sshd|wc -l)+"
+ssh+="$(function_dropb|grep "$user"|wc -l)+"
+[[ "$OPENVPN" = "on" ]] && ssh+="$(fun_ovpn_onl|grep "$user"|wc -l)+" 
+ssh+="0"
+user_pid=$(echo $ssh|bc)
+declare -A time
+fun_time_user "$user"
+SEC="${time[$user]}"
+[[ "$SEC" = "" ]] && SEC="0"
+[[ "$SEC" != +([0-9]) ]] && SEC="0"
+MIN=$(($SEC/60))
+SEC=$(($SEC-$MIN*60))
+HOR=$(($MIN/60))
+MIN=$(($MIN-$HOR*60))
+msg[1]=$(printf '%-12s' "${user}")
+msg[2]=$(printf '%-7s' "${user_pid}")
+msg[3]=$(printf '%-1s' "${HOR}h:${MIN}m:${SEC}s")
+if [ "$user_pid" -gt "0" ]; then
+echo -e "\033[1;32m ${msg[1]} ${msg[2]} ${msg[3]} ${cor[0]}"
+algumon="on"
+ else
+ [[ -e $usr_pids_var/$user.pid2 ]] && rm $usr_pids_var/$user.pid2
+fi
+done
+[[ "$algumon" = "" ]] &&  echo -e "\033[1;31m No hay usuarios conectados" && unset algumon
+echo -e "${cor[1]}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${cor[0]}"
+}
+
+function_6 () {
+unset _removidos
+echo -e "${cor[1]}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${cor[0]}"
+datenow=$(date +%s)
+for user in $(awk -F: '{print $1}' /etc/passwd); do
+expdate=$(chage -l $user|awk -F: '/Cuenta vence/{print $2}')
+echo $expdate|grep -q "nunca" && continue
+datanormal=$(date -d"$expdate" '+%d/%m/%Y')
+expsec=$(date +%s --date="$expdate")
+diff=$(echo $datenow - $expsec|bc -l)
+echo $diff|grep -q ^\- && continue
+userdel --force $user > /dev/null 2>/dev/null
+kill -9 `ps aux |grep -vi '[a-z]$user' |grep -vi '$user[a-z]' |grep -v '[1-9]$user' |grep -v '$user[1-9]' |grep $user |awk {'print $2'}` 2> /dev/null
+pid_kill=$(function_dropb | grep "$user" | awk '{print $2}')
+[[ "$pid_kill" != "" ]] && drop_kill $user
+[[ -e $dir_user/$user ]] && rm $dir_user/$user
+_removidos="on"
+echo -e "\033[1;37m $user ${cor[2]} ELIMINADO "
+done
+if [ "$_removidos" = "" ]; then
+echo -e "${cor[5]} No hay usuarios vencidos"
+unset _removidos
+fi
+echo -e "${cor[1]}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${cor[0]}"
+}
+
+function_7 () {
+echo -e "${cor[3]} ¿Realmente desea añadir un banner?"
+read -p " [S/N]: " -e -i n sshsn
+[[ "$sshsn" = @(s|S|y|Y) ]] && {
+local2="/etc/dropbear/banner"
+chk=$(cat /etc/ssh/sshd_config | grep Banner)
+if [ "$(echo "$chk" | grep -v "#Banner" | grep Banner)" != "" ]; then
+local=$(echo "$chk" |grep -v "#Banner" | grep Banner | awk '{print $2}')
+ else
+echo "Banner /etc/bannerssh" >> /etc/ssh/sshd_config
+local="/etc/bannerssh"
+fi
+echo -e "${cor[1]}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${cor[0]}"
+echo -ne "\033[1;37m"
+read -p " Ingrese el banner: " ban_ner
+echo -e " \033[1;31m[ 1 ]\033[1;33m - Verde"
+echo -e " \033[1;31m[ 2 ]\033[1;33m - Rojo"
+echo -e " \033[1;31m[ 3 ]\033[1;33m - Azul"
+echo -e " \033[1;31m[ 4 ]\033[1;33m - Amarillo"
+echo -e " \033[1;31m[ 5 ]\033[1;33m - Morado"
+read -p " [ 1 - 5 ]: " ban_ner_cor
+echo '<h1><font>━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━</font></h1>' > $local
+if [[ "$ban_ner_cor" = "1" ]]; then
+echo '<h1><font color="green">' >> $local
+elif [[ "$ban_ner_cor" = "2" ]]; then
+echo '<h1><font color="red">' >> $local
+elif [[ "$ban_ner_cor" = "3" ]]; then
+echo '<h1><font color="blue">' >> $local
+elif [[ "$ban_ner_cor" = "4" ]]; then
+echo '<h1><font color="yellow">' >> $local
+elif [[ "$ban_ner_cor" = "5" ]]; then
+echo '<h1><font color="purple">' >> $local
+else
+echo '<h1><font color="blue">' >> $local
+fi
+echo "$ban_ner" >> $local
+echo '</font></h1>' >> $local
+echo '<h1><p style="text-align:center;">━━━━━━━━━━━━━━━━━━━━━━━</p></h1>' >> $local
+echo '<h5 style="text-align: center;"><span style="color: #FFD700;">VPS MÁSTER - SINNOMBRE22</span></h5>' >> $local
+echo '<h1><p style="text-align:center;">━━━━━━━━━━━━━━━━━━━━━━━</p></h1>' >> $local
+if [ -e "$local2" ]; then
+rm $local2  > /dev/null 2>&1
+cp $local $local2 > /dev/null 2>&1
+fi
+echo -e "${cor[1]}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${cor[0]}"
+service ssh restart > /dev/null 2>&1 &
+service sshd restart > /dev/null 2>&1 & 
+service dropbear restart > /dev/null 2>&1 &
+}
+return 0
+}
+
+limiter_fun () {
+[[ "$VERIFICAR" = "on" ]] && {
+echo -e "${cor[1]}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${cor[0]}"
+echo -e "${cor[5]} LIMITADOR EN EJECUCIÓN ${cor[0]}"
+echo -e "${cor[1]}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${cor[0]}"
+return
+}
+   if [[ $limiter_on = "" ]]; then
+   unset limiter_on
+   chmod +x /etc/vps-master/limiter.sh &
+   /etc/vps-master/limiter.sh &
+   screen -dmS Limiter-ssh /etc/vps-master/limiter.sh
+   echo -e "${cor[1]}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${cor[0]}"
+   echo -e "${cor[5]} LIMITADOR INICIADO ${cor[0]}"
+   echo -e "${cor[1]}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${cor[0]}"
+   else
+   unset limiter_on
+   killall limiter.sh > /dev/null 2>&1
+   kill -9 $(ps x|grep -v grep|grep limiter.sh|awk '{print $1}')
+   echo -e "${cor[1]}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${cor[0]}"
+   echo -e "${cor[5]} LIMITADOR DETENIDO ${cor[0]}"
+   echo -e "${cor[1]}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${cor[0]}"
+   fi
+}
+
+[[ "$1" = "1" ]] && function_1
+[[ "$1" = "2" ]] && function_2
+[[ "$1" = "3" ]] && function_3
+[[ "$1" = "4" ]] && function_4
+[[ "$1" = "5" ]] && function_5
+[[ "$1" = "6" ]] && function_6
+[[ "$1" = "7" ]] && function_7
+[[ "$1" = "8" ]] && net_meter
+[[ "$1" = "9" ]] && limiter_fun
+
+# Limpiar archivos temporales
+[[ -e $_tmp ]] && rm $_tmp
+[[ -e $_tmp2 ]] && rm $_tmp2
+[[ -e $_tmp3 ]] && rm $_tmp3
+[[ -e $_tmp4 ]] && rm $_tmp4
