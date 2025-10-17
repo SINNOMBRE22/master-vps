@@ -1,0 +1,75 @@
+#!/bin/bash
+
+# ════════════════════════════════════════════════════════════════════
+# VPS MÁSTER - Sistema de Actualización
+# Creado por: SINNOMBRE22
+# Fecha: 2025-10-17 23:45:34 UTC
+# Compatible con: Ubuntu 22.04 LTS
+# ════════════════════════════════════════════════════════════════════
+
+#COMPARA
+fun_filez () {
+arq="/etc/master-vps/$1"
+arq2="$HOME/update/$1"
+     [[ ! -e "/etc/master-vps/$1" ]] && {
+     mv -f $arq2 $arq
+     return
+     }
+equal=$(diff -q $arq $arq2)
+echo -e "\033[1;31m ${txt[203]}: $1"
+     [[ "$equal" = "" ]] && rm $arq2 || {
+     mv -f $arq2 $arq
+     chmod +x $arq
+     lista_atualizados=$(($lista_atualizados + 1))
+     echo -e "\033[1;32m ${txt[204]}: $1 - ${txt[205]}!"
+     sleep 0.5s
+     echo ""
+     }
+}
+
+#ACTUALIZACIÓN
+atualiza_fun () {
+echo -e "${cor[1]}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${cor[0]}"
+cd $HOME
+[[ ! -d ./update ]] && mkdir ./update
+cd ./update
+wget -i $HOME/lista -o /dev/null
+for arqs in `ls $HOME/update`; do
+fun_filez $arqs
+done
+  _modulos="/etc/master-vps/modulos"
+  active_verif=$(cat $_modulos | egrep -v "VERIFICAR")
+  echo "$active_verif" > $_modulos
+  for _pids_ in `atq | awk '{print $1}'`; do
+   atrm $_pids_
+  done
+  [[ -e /etc/master-vps/vencidos ]] && rm /etc/master-vps/vencidos
+  [[ -e /etc/master-vps/onlines ]] && rm /etc/master-vps/onlines
+  [[ -e $HOME/lista ]] && rm $HOME/lista
+  [[ -d $HOME/update ]] && rm -rf $HOME/update
+  [[ "$lista_atualizados" != "" ]] && echo -e "${cor[5]} $lista_atualizados ${txt[206]}"
+  [[ -e /etc/master-vps/idioma ]] && rm /etc/master-vps/idioma
+echo -e "${cor[1]}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${cor[0]}"
+}
+
+#COLORES
+cor[1]="\033[1;36m"
+cor[2]="\033[1;32m"
+cor[3]="\033[1;31m"
+cor[4]="\033[1;33m"
+cor[0]="\033[1;37m"
+
+#TEXTOS
+txt[206]="¡Archivos Actualizados!"
+txt[208]="¡Clave Inválida, Contacte al Administrador!"
+txt[207]="¡Válido!"
+txt[203]="Analizando"
+txt[204]="Archivo"
+txt[205]="Actualizado"
+
+cd $HOME
+[[ -d $HOME/update ]] && rm -rf $HOME/update
+[[ -e $HOME/lista ]] && rm $HOME/lista
+cd /root
+wget -O lista https://raw.githubusercontent.com/SINNOMBRE22/master-vps/master/lista -o /dev/null
+atualiza_fun
