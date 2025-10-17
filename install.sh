@@ -60,7 +60,7 @@ service apache2 restart > /dev/null 2>&1
 }
 
 valid_fun () {
-[[ -d /etc/vps-master ]] && rm -rf /etc/master-vps
+[[ -d /etc/master-vps ]] && rm -rf /etc/master-vps
 mkdir /etc/master-vps
 cd /etc/master-vps
 echo "cd /etc/vps-master && bash ./menu" > /bin/menu
@@ -68,7 +68,7 @@ echo "cd /etc/vps-master && bash ./menu" > /bin/vps
 chmod +x /bin/menu
 chmod +x /bin/vps
 cd /etc/vps-master
-touch /etc/vps-master/index.html
+touch /etc/master-vps/index.html
 wget -i $HOME/lista -o /dev/null
 wget -O trans https://raw.githubusercontent.com/SINNOMBRE22/master-vps/master/Modulo/michu -o /dev/null 2>&1
 echo -e "${cor[5]} $(source trans -b pt:${id} "INSTALANDO DEPENDENCIAS")"
