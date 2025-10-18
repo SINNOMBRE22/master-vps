@@ -6,7 +6,7 @@
 # Fecha: 2025-10-17 22:37:06 UTC
 # ════════════════════════════════════════════════════════════════════
 
-u_dir="/etc/vps-master/userDIR"
+u_dir="/etc/master-vps/userDIR"
 tmp_verifica="/etc/master-vps/tmp_tmp"
 _arquivo1="/etc/master-vps/tmp_arq1"
 _arquivo2="/etc/master-vps/tmp_arq2"
