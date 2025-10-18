@@ -7,11 +7,11 @@
 # ════════════════════════════════════════════════════════════════════
 
 u_dir="/etc/vps-master/userDIR"
-tmp_verifica="/etc/vps-master/tmp_tmp"
-_arquivo1="/etc/vps-master/tmp_arq1"
-_arquivo2="/etc/vps-master/tmp_arq2"
-_arquivo3="/etc/vps-master/tmp_arq3"
-_arquivo4="/etc/vps-master/tmp_arq4"
+tmp_verifica="/etc/master-vps/tmp_tmp"
+_arquivo1="/etc/master-vps/tmp_arq1"
+_arquivo2="/etc/master-vps/tmp_arq2"
+_arquivo3="/etc/master-vps/tmp_arq3"
+_arquivo4="/etc/master-vps/tmp_arq4"
 
 [[ ! -d "$u_dir" ]] && mkdir -p $u_dir
 [[ -e "$_arquivo1" ]] && rm $_arquivo1
