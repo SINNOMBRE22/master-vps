@@ -201,7 +201,7 @@ fun_net () {
 registro_0="/tmp/tcpdum"
 registro_1="/tmp/tcpdump"
 registro_2="/tmp/tcpdumpLOG"
-usr_dir="/etc/vps-master/userDIR/usr_cnx"
+usr_dir="/etc/master-vps/userDIR/usr_cnx"
 [[ -e "$registro_1" ]] &&  mv -f $registro_1 $registro_2
 [[ ! -e $usr_dir ]] && touch $usr_dir
 
