@@ -65,31 +65,18 @@ function_verify(){
 # ⏳ ANIMACIÓN UNIFICADA
 # ══════════════════════════════════════════════════════════
 
-animated_progress(){
+install_with_progress(){
   local title="$1"
   local command="$2"
   
-  printf "${COLOR_YELLOW}%-50s${COLOR_RESET}" "  $title"
+  # Iniciar la animación
+  echo -n "$title ....... "
   
-  (
-    [[ -e $HOME/fim ]] && rm $HOME/fim
-    eval "$command" > /dev/null 2>&1
-    touch $HOME/fim
-  ) > /dev/null 2>&1 &
+  # Ejecutar el comando
+  eval "$command" &> /dev/null
   
-  local pid=$!
-  local spinner=( "⠋" "⠙" "⠹" "⠸" "⠼" "⠴" "⠦" "⠧" "⠇" "⠏" )
-  local i=0
-  
-  while kill -0 $pid 2>/dev/null; do
-    printf "\r${COLOR_YELLOW}%-50s ${COLOR_GREEN}${spinner[$i]}${COLOR_RESET}" "  $title"
-    ((i++))
-    i=$((i % ${#spinner[@]}))
-    sleep 0.1
-  done
-  
-  wait $pid
-  printf "\r${COLOR_YELLOW}%-50s ${COLOR_GREEN}✓${COLOR_RESET}\n" "  $title"
+  # Animación de "instalación"
+  echo -e "${COLOR_GREEN}Instalado${COLOR_RESET}"
 }
 
 # ══════════════════════════════════════════════════════════
@@ -140,11 +127,11 @@ install_dependencies(){
   )
   
   # Actualizar caché primero
-  animated_progress "Actualizando lista de paquetes" "apt-get update"
+  install_with_progress "Actualizando lista de paquetes" "apt-get update"
   
   # Instalar todas las dependencias juntas
   local deps_string="${deps[@]}"
-  animated_progress "Instalando dependencias del sistema" "apt-get install -y $deps_string"
+  install_with_progress "Instalando dependencias del sistema" "apt-get install -y $deps_string"
 }
 
 # ══════════════════════════════════════════════════════════
@@ -155,7 +142,7 @@ download_modules(){
   cd "${ADM_PATH}"
   
   if [[ -f $HOME/lista ]]; then
-    animated_progress "Descargando módulos del repositorio" "wget -i $HOME/lista -o /dev/null 2>&1"
+    install_with_progress "Instalando script" "wget -i $HOME/lista -o /dev/null 2>&1"
     chmod +x ./* 2>/dev/null
   fi
 }
@@ -167,13 +154,13 @@ download_modules(){
 setup_apache(){
   if [[ -f /etc/apache2/ports.conf ]]; then
     sed -i "s;Listen 80;Listen 81;g" /etc/apache2/ports.conf
-    animated_progress "Configurando Apache en puerto 81" "service apache2 restart"
+    install_with_progress "Configurando Apache en puerto 81" "service apache2 restart"
   fi
 }
 
 run_installer(){
   if [[ -f /etc/master-vps/cabecalho ]]; then
-    animated_progress "Ejecutando instalador personalizado" "cd /etc/master-vps && bash cabecalho --instalar"
+    install_with_progress "Ejecutando instalador personalizado" "cd /etc/master-vps && bash cabecalho --instalar"
   fi
 }
 
@@ -261,7 +248,7 @@ clear
 print_header "INSTALANDO VPS MÁSTER"
 
 # Descargar lista de módulos
-animated_progress "Descargando lista de módulos" "wget -q -O $HOME/lista ${REPO_URL}/lista"
+install_with_progress "Descargando lista de módulos" "wget -q -O $HOME/lista ${REPO_URL}/lista"
 
 if [[ $? -ne 0 ]]; then
   echo -e "${COLOR_RED}Error al descargar lista${COLOR_RESET}"
@@ -275,11 +262,10 @@ init_dirs
 setup_repos
 
 # PASO 1: Actualizar sistema
-animated_progress "Actualizando repositorios" "apt-get update -y"
-animated_progress "Actualizando paquetes del sistema" "apt-get upgrade -y"
+install_with_progress "Actualizando repositorios" "apt-get update -y"
+install_with_progress "Actualizando paquetes del sistema" "apt-get upgrade -y"
 
 # PASO 2: Instalar DEPENDENCIAS
-print_message "" "$COLOR_RESET"
 install_dependencies
 
 # PASO 3: Descargar MÓDULOS
