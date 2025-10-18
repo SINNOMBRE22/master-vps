@@ -8,10 +8,10 @@
 # ════════════════════════════════════════════════════════════════════
 
 # Directorios de configuración
-dir_user="/etc/vps-master/userDIR"
+dir_user="/etc/master-vps/userDIR"
 tempousers="/tmp/tempo_conexao"
-usr_pids_var="/etc/vps-master/userDIR"
-net_dir="/etc/vps-master/userDIR/usr_cnx"
+usr_pids_var="/etc/master-vps/userDIR"
+net_dir="/etc/master-vps/userDIR/usr_cnx"
 
 # Definir colores
 cor[0]="\033[0m"      # Reset
@@ -507,9 +507,9 @@ return
 }
    if [[ $limiter_on = "" ]]; then
    unset limiter_on
-   chmod +x /etc/vps-master/limiter.sh &
-   /etc/vps-master/limiter.sh &
-   screen -dmS Limiter-ssh /etc/vps-master/limiter.sh
+   chmod +x /etc/master-vps/limiter.sh &
+   /etc/master-vps/limiter.sh &
+   screen -dmS Limiter-ssh /etc/master-vps/limiter.sh
    echo -e "${cor[1]}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${cor[0]}"
    echo -e "${cor[5]} LIMITADOR INICIADO ${cor[0]}"
    echo -e "${cor[1]}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${cor[0]}"
