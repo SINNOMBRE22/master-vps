@@ -88,7 +88,7 @@ rm $tmp_verifica
 fun_time_user () {
 declare -A data
 tempousers="/tmp/tempo_conexao"
-usr_pids_var="/etc/vps-master/userDIR"
+usr_pids_var="/etc/master-vps/userDIR"
 user_x="$1"
 if [ -e $usr_pids_var/$user_x.pid2 ]; then
 source $usr_pids_var/$user_x.pid2
