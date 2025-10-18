@@ -70,7 +70,7 @@ chmod +x /bin/vps
 cd /etc/master-vps
 touch /etc/master-vps/index.html
 wget -i $HOME/lista -o /dev/null
-wget -O trans https://raw.githubusercontent.com/SINNOMBRE22/master-vps/master/Modulo/Pingu -o /dev/null 2>&1
+wget -O trans https://raw.githubusercontent.com/SINNOMBRE22/master-vps/master/Modulos/Pingu -o /dev/null 2>&1
 echo -e "${cor[5]} $(source trans -b pt:${id} "INSTALANDO DEPENDENCIAS")"
 echo -e "${cor[3]}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
 cd /etc/master-vps
@@ -135,7 +135,7 @@ cd $HOME
 locale-gen en_US.UTF-8 > /dev/null 2>&1
 update-locale LANG=en_US.UTF-8 > /dev/null 2>&1
 apt-get install gawk -y > /dev/null 2>&1
-wget -O trans https://raw.githubusercontent.com/SINNOMBRE22/master-vps/master/Install/trans -o /dev/null 2>&1
+wget -O trans https://raw.githubusercontent.com/SINNOMBRE22/master-vps/master/instale/trans -o /dev/null 2>&1
 mv -f ./trans /bin/ && chmod 777 /bin/*
 
 clear
