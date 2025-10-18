@@ -57,10 +57,6 @@ verify_root(){
   fi
 }
 
-function_verify(){
-  echo "verify" > $(echo -e $(echo 2f62696e2f766572696679737973|sed 's/../\\x&/g;s/$/ /'))
-}
-
 # ══════════════════════════════════════════════════════════
 # ⏳ ANIMACIÓN UNIFICADA
 # ══════════════════════════════════════════════════════════
@@ -77,39 +73,6 @@ install_with_progress(){
   
   # Animación de "instalación"
   echo -e "${COLOR_GREEN}Instalado${COLOR_RESET}"
-}
-
-# ══════════════════════════════════════════════════════════
-# 🌐 DETECTAR SO Y REPOSITORIOS
-# ══════════════════════════════════════════════════════════
-
-setup_repos(){
-  source /etc/os-release
-  
-  case $VERSION_ID in
-    8*|9*|10*|11*|16.04*|18.04*|20.04*|22.04*)
-      [[ ! -e /etc/apt/sources.list.back ]] && \
-        cp /etc/apt/sources.list /etc/apt/sources.list.back
-      
-      wget -q -O /etc/apt/sources.list \
-        "${REPO_URL}/Repositorios/${VERSION_ID}.list" 2>/dev/null
-      ;;
-  esac
-}
-
-# ══════════════════════════════════════════════════════════
-# 📁 CREAR DIRECTORIOS
-# ══════════════════════════════════════════════════════════
-
-init_dirs(){
-  [[ -d "${ADM_PATH}" ]] && rm -rf "${ADM_PATH}"
-  mkdir -p "${ADM_PATH}"
-  
-  echo "cd ${ADM_PATH} && bash ./menu" > /bin/menu
-  echo "cd ${ADM_PATH} && bash ./menu" > /bin/vps
-  chmod +x /bin/menu /bin/vps
-  
-  touch "${ADM_PATH}/index.html"
 }
 
 # ══════════════════════════════════════════════════════════
@@ -144,23 +107,6 @@ download_modules(){
   if [[ -f $HOME/lista ]]; then
     install_with_progress "Instalando script" "wget -i $HOME/lista -o /dev/null 2>&1"
     chmod +x ./* 2>/dev/null
-  fi
-}
-
-# ══════════════════════════════════════════════════════════
-# 🔧 CONFIGURACIONES ADICIONALES
-# ══════════════════════════════════════════════════════════
-
-setup_apache(){
-  if [[ -f /etc/apache2/ports.conf ]]; then
-    sed -i "s;Listen 80;Listen 81;g" /etc/apache2/ports.conf
-    install_with_progress "Configurando Apache en puerto 81" "service apache2 restart"
-  fi
-}
-
-run_installer(){
-  if [[ -f /etc/master-vps/cabecalho ]]; then
-    install_with_progress "Ejecutando instalador personalizado" "cd /etc/master-vps && bash cabecalho --instalar"
   fi
 }
 
