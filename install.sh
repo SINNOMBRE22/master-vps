@@ -3,7 +3,7 @@
 # ══════════════════════════════════════════════════════════
 # VPS MÁSTER - Sistema Instalación Modular Pro
 # Creado por: SINNOMBRE22
-# Fecha: 2025-10-18 08:48:02 UTC
+# Fecha: 2025-10-18 08:52:31 UTC
 # Versión: 2.0 - ADMRufu Style
 # ══════════════════════════════════════════════════════════
 
@@ -399,7 +399,7 @@ error_fun(){
   echo -e "\033[1;36mwget https://raw."
   echo -e "githubusercontent.com/"
   echo -e "SINNOMBRE22/master-vps/"
-  echo -e "master/Install/"
+  echo -e "master/instale/"
   echo -e "apt-source.sh"
   echo -e "${cor[5]}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
   echo -ne "\033[0m"
@@ -428,7 +428,7 @@ success_screen(){
   echo -e "                 • menu"
   echo -e "                 • vps"
   echo -e ""
-  echo -e "              2025-10-18 08:48:02 (UTC)"
+  echo -e "              2025-10-18 08:52:31 (UTC)"
   echo -e "${cor[5]}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
   echo -ne "\033[0m"
 }
@@ -451,13 +451,13 @@ update-locale LANG=en_US.UTF-8 > /dev/null 2>&1
 
 apt-get install gawk -y > /dev/null 2>&1
 
+# DETECTAR SO PRIMERO
+detect_system
+
 wget -q -O trans \
   ${REPO_URL}/instale/trans 2>/dev/null
 [[ -e trans ]] && mv -f ./trans /bin/ && \
   chmod 777 /bin/trans
-
-# DETECTAR SO ANTES DE TODO
-detect_system
 
 clear
 
