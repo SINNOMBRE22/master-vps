@@ -1,0 +1,96 @@
+#!/bin/bash
+
+# ════════════════════════════════════════════════════════════════════
+# VPS MÁSTER - Instalador de Panel Web
+# Creado por: SINNOMBRE22
+# Fecha: 2025-10-18 04:18:09 UTC
+# Compatible con: Ubuntu 22.04 LTS
+# ════════════════════════════════════════════════════════════════════
+
+ve="\033[1;32m"
+am="\033[1;33m"
+ver="\033[1;31m"
+az="\033[1;36m"
+f="\033[0m"
+
+meu_ip () {
+MEU_IP=$(ip addr | grep 'inet' | grep -v inet6 | grep -vE '127\.[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}' | grep -o -E '[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}' | head -1)
+MEU_IP2=$(wget -qO- ipv4.icanhazip.com)
+[[ "$MEU_IP" != "$MEU_IP2" ]] && ip="$MEU_IP2" || ip="$MEU_IP"
+}
+
+apt-get install figlet -y > /dev/null 2>&1
+meu_ip
+echo -e "${az}"
+figlet "VPS MÁSTER"
+echo -e "${f}"
+sleep 2
+echo
+echo -e "${ver}            +++++ ATENCIÓN +++++${am}     
+TODAS LAS CONTRASEÑAS A CONTINUACIÓN COLOQUE SIEMPRE LA MISMA${f}"
+read -p "Presione ENTER, ¡Para Continuar!"
+apt-get install php7.4 libapache2-mod-php7.4 php7.4-mysql php7.4-mcrypt -y
+apt-get install mysql-server
+mysql_install_db
+echo ""
+echo -e "${am}Siempre que se solicite${ver}[S/N]${am}elija la opción${ver}S${am} y de ${ve}OK.${am} para todo lo que pida.
+...
+${am}El próximo procedimiento de instalación le pedirá una contraseña
+ingrese la contraseña que ingresó antes y confírmela, luego presione ${ver}S${f}"
+read -p "Presione ENTER, ¡Para Continuar!"
+mysql_secure_installation
+echo -e "${az}AGUARDE LA INSTALACIÓN${f}"
+sleep 2
+apt-get install phpmyadmin -y
+service apache2 restart
+echo ""
+stty -echo
+tput setaf 7 ; tput bold ; read -p "Ingrese la misma contraseña (Contraseña MySQL): " var7 ; tput sgr0
+echo ""
+stty echo ; echo
+mysql -h localhost -u root -p$var7 -e "CREATE DATABASE adm"
+echo -e "${ver}ATENCIÓN - LAS CREDENCIALES A CONTINUACIÓN SON PERSONALES, NO LAS DIVULGUEN ${f}"
+echo ""
+echo -e "${am}Ahora configuraremos un USUARIO y CONTRASEÑA para acceder a la página${ve}"
+	read -p "Usuario: " var2
+	read -p "Contraseña: " var3
+	echo -ne "${f}"
+
+cd /var/www/
+   rm -rf index.html > /dev/null 2>&1
+   cp /etc/master-vps/painel.zip /var/www/
+   unzip painel.zip > /dev/null 2>&1
+   rm -rf painel.zip > /dev/null 2>&1
+   chmod -R 777 /var/www/adm > /dev/null 2>&1
+sed -i "s;123;$var7;g" /var/www/adm/system/seguranca.php > /dev/null 2>&1
+
+cd /var/www/html/
+   rm -rf index.html > /dev/null 2>&1
+   cp /etc/master-vps/painel.zip /var/www/html/
+   unzip painel.zip > /dev/null 2>&1
+   rm -rf painel.zip > /dev/null 2>&1 
+   chmod -R 777 /var/www/html/adm > /dev/null 2>&1
+sed -i "s;123;$var7;g" /var/www/html/adm/system/seguranca.php > /dev/null 2>&1
+
+[[ ! -d /var/www/temp ]] && mkdir /var/www/temp
+cd /var/www/temp && cp /etc/master-vps/datos.zip /var/www/temp/
+unzip datos.zip > /dev/null 2>&1
+
+sed -i "s;adm123;$var2;g" ./banco_de_datos.sql > /dev/null 2>&1
+sed -i "s;adm4321;$var3;g" ./banco_de_datos.sql > /dev/null 2>&1
+
+mysql -h localhost -u root -p$var7 adm < banco_de_datos.sql > /dev/null 2>&1
+rm -rf /var/www/temp
+
+echo -e "${am}PANEL DE CARGA EHI INSTALADO. PARA ACCEDER A SU PANEL, INGRESE A:
+${az}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+${ver}URL: ${ve}$ip:81/login.php
+${am}Usuario: ${ve}$var2
+${am}Contraseña: ${ve}$var3
+${am}ENLACE PÁGINA INICIAL ${ve}( $ip:81 )
+${az}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${f}"
+echo -e "${am}"
+read -p "Presione ENTER, ¡Para Continuar!" naoa
+sleep 2
+echo -e "${f}"
+exit
