@@ -63,8 +63,8 @@ valid_fun () {
 [[ -d /etc/master-vps ]] && rm -rf /etc/master-vps
 mkdir /etc/master-vps
 cd /etc/master-vps
-echo "cd /etc/vps-master && bash ./menu" > /bin/menu
-echo "cd /etc/vps-master && bash ./menu" > /bin/vps
+echo "cd /etc/master-vps && bash ./menu" > /bin/menu
+echo "cd /etc/master-vps && bash ./menu" > /bin/vps
 chmod +x /bin/menu
 chmod +x /bin/vps
 cd /etc/master-vps
