@@ -1,160 +1,156 @@
 #!/bin/bash
-
-# ==============================================================
-# VPS MÁSTER - Instalador similar a VPS-AGN, adaptado a rutas
+# =============================================================
+# VPS MÁSTER - Instalador estilo AGN con colores del proyecto
 # Proyecto: SINNOMBRE22/master-vps
-# Fecha: 2025-10-18 10:06:49 UTC
-# Versión: 3.0 ESTABLE
-# Ancho visual: 62 columnas
-# ==============================================================
+# Fecha: 2025-10-18 10:12:43 UTC
+# Versión: 3.1
+# =============================================================
 
 set -euo pipefail
 export DEBIAN_FRONTEND=noninteractive
 
-# Rutas y constantes del proyecto
+# Rutas del proyecto
 ADM_PATH="/etc/master-vps"
 REPO_URL="https://raw.githubusercontent.com/SINNOMBRE22/master-vps/master"
 LOG_FILE="/var/log/vps-master-install.log"
-BOX_WIDTH=62
-TIMEZONE_DEFAULT="UTC"
 
-# Colores
-BRAN='\033[1;37m'; RED='\e[31m'; GREEN='\e[32m'; YELLOW='\e[33m'
-BLUE='\e[34m'; MAGENTA='\e[35m'; CYAN='\033[1;36m'; RESET='\e[0m'
+# Colores (paleta de tu script)
+CYAN='\033[1;36m'
+YELLOW='\033[1;33m'
+RED='\033[1;31m'
+GREEN='\033[1;32m'
+MAGENTA='\033[1;35m'
+RESET='\033[0m'
 
-# --------------------------- Utilidades visuales ---------------------------
+# ========================= UI estilo AGN =========================
 
-line_of(){ local ch="$1"; local n="$2"; for((i=0;i<n;i++));do printf "%s" "$ch"; done; }
-
-print_center_bar(){
-  local title="$1"; local deco="⇱ ${title} ⇲"
-  local w=$BOX_WIDTH; local len=${#deco}
-  (( len > w )) && deco="${deco:0:w}"
-  local pad=$(( (w - len) / 2 )); local rest=$(( w - pad - len ))
-  echo -ne "${CYAN}"; line_of "═" "$pad"
-  echo -ne "${MAGENTA}${deco}${CYAN}"
-  line_of "═" "$rest"; echo -e "${RESET}"
+msg() {
+  BRAN='\033[1;37m'; BLACK='\e[1m'
+  case $1 in
+    -ne)  echo -ne "${RED}${BLACK}${2}${RESET}" ;;
+    -ama) echo -e  "${YELLOW}${BLACK}${2}${RESET}" ;;
+    -verm)echo -e  "${YELLOW}${BLACK}[!] ${RED}${2}${RESET}" ;;
+    -azu) echo -e  "${CYAN}${BLACK}${2}${RESET}" ;;
+    -verd)echo -e  "${GREEN}${BLACK}${2}${RESET}" ;;
+    -bra) echo -ne "${RED}${2}${RESET}" ;;
+    -gri) echo -ne "\e[5m\033[1;100m${2}${RESET}" ;;
+    -bar) echo -e  "${CYAN}════════════════════════════════════════════════════════════${RESET}" ;;
+    -bar2)echo -e  "${CYAN}────────────────────────────────────────────────────────────${RESET}" ;;
+  esac
 }
 
-header(){
-  echo -ne "${CYAN}"; line_of "═" "$BOX_WIDTH"; echo -e "${RESET}"
-  print_center_bar "$1"
-  echo -ne "${CYAN}"; line_of "═" "$BOX_WIDTH"; echo -e "${RESET}\n"
-}
-
-hline(){ echo -ne "${CYAN}"; line_of "═" "$BOX_WIDTH"; echo -e "${RESET}"; }
-
-msg(){ # msg "<texto>" "<color>"
-  local text="  ${1}"; text="${text:0:60}"; local color="${2:-$BRAN}"
-  printf "${color}%-60s${RESET}\n" "$text"
-}
-
-# Estilo tipo VPS-AGN: barra de progreso textual
-fun_bar(){
-  local comando="$1"
-  ( bash -c "$comando" >>"$LOG_FILE" 2>&1 ) &
-  local pid=$!; echo -ne "  ${YELLOW}["
-  while kill -0 "$pid" 2>/dev/null; do
-    for ((i=0;i<10;i++)); do echo -ne "${RED}##"; sleep 0.15; done
-    echo -ne "${YELLOW}]"; sleep 0.4; echo; tput cuu1; tput dl1
-    echo -ne "  ${YELLOW}["
-  done
-  echo -e "  ${YELLOW}[\033[1;31m########################################\033[1;33m] - ${GREEN}100%${RESET}"
-}
-
-print_center(){
-  # similar al del ejemplo (centra hasta 54 chars útiles)
-  local col="${1:-}"; local text; local color="$col"
-  shift || true
-  text="${*}"
+print_center() {
+  local color="$1"; shift || true
+  local text="$*"
   [[ -z "$text" ]] && read -r text
   while IFS= read -r line; do
     local space=""; local L=$(( (54 - ${#line}) / 2 ))
+    (( L < 0 )) && L=0
     for ((i=0;i<L;i++)); do space+=' '; done
-    if [[ "$color" =~ ^\\e ]]; then
-      printf "%b%s%b\n" "$color" "$space$line" "$RESET"
+    if [[ -n "$color" ]]; then
+      msg "$color" "${space}${line}"
     else
-      msg "$space$line"
+      msg -azu "${space}${line}"
     fi
   done <<<"$text"
 }
 
-# ------------------------------ Auxiliares -------------------------------
+title() {
+  clear
+  msg -bar
+  print_center -azu "⇱ ${1} ⇲"
+  msg -bar
+}
+
+fun_bar() {
+  local comando="$1"
+  ( bash -c "$comando" >>"$LOG_FILE" 2>&1 ) &
+  local pid=$!
+  while [[ -d /proc/$pid ]]; do
+    echo -ne " ${YELLOW}["
+    for ((i=0;i<20;i++)); do
+      echo -ne "${RED}##"
+      sleep 0.15
+    done
+    echo -ne "${YELLOW}]"
+    sleep 0.4
+    echo
+    tput cuu1; tput dl1
+  done
+  echo -e " ${YELLOW}[\033[1;31m########################################\033[1;33m] - ${GREEN}100%${RESET}"
+  sleep 0.5
+}
+
+# ===================== Utilidades y sistema =====================
 
 ensure_log(){ : > "$LOG_FILE" || true; }
 
 verify_root(){
   if [[ "$(id -u)" -ne 0 ]]; then
-    clear; header "ERROR DE EJECUCIÓN"
-    msg "Debe ejecutar como root" "$RED"
-    msg "Intente: sudo bash install.sh" "$YELLOW"; hline; echo; exit 1
+    title "ERROR DE EJECUCIÓN"
+    print_center -verm "DEBE EJECUTAR COMO ROOT"
+    msg -bar
+    print_center -ama "Use: sudo bash install.sh"
+    msg -bar
+    exit 1
   fi
 }
 
-set_timezone(){
-  local tz="${TIMEZONE:-$TIMEZONE_DEFAULT}"
-  ln -sf "/usr/share/zoneinfo/$tz" /etc/localtime >/dev/null 2>&1 || true
+prep_locale(){
+  title "PREPARANDO SISTEMA"
+  print_center -ama "Configurando locales (en_US.UTF-8)"
+  fun_bar "locale-gen en_US.UTF-8"
+  fun_bar "update-locale LANG=en_US.UTF-8"
 }
 
-retry(){
-  # retry <intentos> <cmd...>
-  local max="$1"; shift; local i
-  for ((i=1;i<=max;i++)); do
-    if bash -c "$*" >>"$LOG_FILE" 2>&1; then return 0; fi
-    sleep 2
-  done
-  return 1
-}
-
-install_with_progress(){
-  local title="$1"; shift; local cmd="$*"
-  local dots=" ....... "; local label="${title}${dots}"
-  label="${label:0:50}"; printf "  %-50s" "$label"
-  if retry 3 "$cmd"; then echo -e " ${GREEN}✓${RESET}"
-  else echo -e " ${RED}✗${RESET}"; return 1; fi
-}
-
-# --------------------------- Sistema / Rutas -----------------------------
-
-init_dirs(){
+init_paths(){
+  title "INICIALIZANDO RUTAS"
   [[ -d "$ADM_PATH" ]] && rm -rf "$ADM_PATH"
-  mkdir -p "$ADM_PATH"; : > "$ADM_PATH/index.html"
+  mkdir -p "$ADM_PATH"
+  : > "$ADM_PATH/index.html"
   echo "cd $ADM_PATH && bash ./menu" > /bin/menu
   echo "cd $ADM_PATH && bash ./menu" > /bin/vps
   chmod +x /bin/menu /bin/vps
+  print_center -verd "Rutas listas en: $ADM_PATH"
+  sleep 1
 }
 
-detect_net(){
-  # requiere net-tools; se instala temprano
-  local ip iface
-  ip=$(ifconfig 2>/dev/null | awk '/inet /{print $2}' | grep -v '^127\.' | head -n1)
-  iface=$(ifconfig 2>/dev/null | grep -B1 "inet $ip" | head -n1 | awk '{print $1}')
-  echo "$ip" > "$ADM_PATH/.ip" 2>/dev/null || true
-  echo "$iface" > "$ADM_PATH/.iface" 2>/dev/null || true
+download_lista(){
+  title "DESCARGANDO LISTA DE MÓDULOS"
+  fun_bar "wget -q -O \"$HOME/lista\" \"$REPO_URL/lista\" || curl -fsSL \"$REPO_URL/lista\" -o \"$HOME/lista\""
+  if [[ ! -s "$HOME/lista" ]]; then
+    print_center -verm "No se pudo descargar la lista"
+    msg -bar
+  else
+    print_center -verd "Lista descargada correctamente"
+  fi
+  sleep 1
 }
 
-# -------------------------- Dependencias -------------------------------
+# ===================== Dependencias requeridas =====================
 
-install_deps_iter(){
-  # Paquetes solicitados + equivalentes modernos y TLS
-  local soft=(
-    ca-certificates lsb-release
-    git wget curl python3 python3-pip python-is-python3
-    build-essential openssl screen cron iptables apache2 ufw
-    nano net-tools lsof zip unzip figlet bc gawk grep at
-    mlocate locales jq
-  )
-  msg "Preparando instalación..." "$YELLOW"
-  install_with_progress "Actualizando repositorios" "apt-get update -y" || true
-  install_with_progress "Actualizando paquetes" "apt-get upgrade -y" || true
-  echo
-  print_center "$YELLOW" "INSTALANDO DEPENDENCIAS"
-  hline
-  for pkg in "${soft[@]}"; do
-    local pts dots="....................."
-    local gap=$((21 - ${#pkg})); pts="${dots:0:$gap}"
-    printf "    \033[1;36minstalling %s\033[0m" "$pkg"
-    printf "%s" "$(printf '%s' "$pts" | sed 's/ /./g')"
+dependencias(){
+  title "INSTALANDO DEPENDENCIAS"
+  print_center -ama "Actualizando repositorios"
+  fun_bar "apt-get update -y"
+  print_center -ama "Actualizando paquetes del sistema"
+  fun_bar "apt-get upgrade -y"
+
+  msg -bar
+  print_center -verd "INSTALANDO PAQUETES"
+  msg -bar
+
+  local soft="git wget curl python3 python3-pip python-is-python3 \
+build-essential openssl screen cron iptables apache2 ufw nano \
+net-tools lsof zip unzip figlet bc gawk grep at mlocate locales jq \
+ca-certificates"
+
+  for pkg in $soft; do
+    local dots="....................."
+    local pad=$((21 - ${#pkg})); [[ $pad -lt 0 ]] && pad=0
+    local pts="${dots:0:$pad}"
+    echo -ne "    ${CYAN}installing ${pkg}${RESET}"
+    echo -ne "${pts// /.}"
     if apt-get install -y "$pkg" >>"$LOG_FILE" 2>&1; then
       echo -e " ${GREEN}INSTALLED${RESET}"
     else
@@ -168,132 +164,99 @@ install_deps_iter(){
       fi
     fi
   done
-  echo
-  install_with_progress "Limpieza de paquetes" "apt-get autoremove -y" || true
+
+  # Asegurar alias python/pip si faltan
+  command -v python >/dev/null 2>&1 || ln -sf /usr/bin/python3 /usr/bin/python
+  command -v pip >/dev/null 2>&1 || ln -sf /usr/bin/pip3 /usr/bin/pip
+
+  msg -bar
+  print_center -verd "Dependencias listas"
+  sleep 1
 }
 
-# ---------------------- Descarga de módulos ----------------------------
-
-download_lista(){
-  install_with_progress "Descargando lista" \
-    "wget -q -O \"$HOME/lista\" \"$REPO_URL/lista\" || curl -fsSL \"$REPO_URL/lista\" -o \"$HOME/lista\""
-}
+# ===================== Módulos del proyecto =====================
 
 download_modules(){
-  if [[ -f "$HOME/lista" ]]; then
+  title "DESCARGANDO MÓDULOS"
+  if [[ -s "$HOME/lista" ]]; then
     ( cd "$ADM_PATH" && fun_bar "wget -q -i \"$HOME/lista\"" )
-    chmod +x "$ADM_PATH"/* 2>/dev/null || true
+    chmod +x "$ADM_PATH"/* >/dev/null 2>&1 || true
+    print_center -verd "Módulos descargados"
   else
-    msg "No se encontró \$HOME/lista" "$YELLOW"
+    print_center -ama "No hay lista, omitiendo descarga"
   fi
+  sleep 1
 }
-
-# -------------------- Configuración de Apache --------------------------
-
-setup_apache(){
-  if [[ -f /etc/apache2/ports.conf ]]; then
-    install_with_progress "Configurando Apache2" \
-      "awk '
-        BEGIN{c=0}
-        /^Listen[[:space:]]+80$/           {print \"Listen 81\"; c=1; next}
-        /^Listen[[:space:]]+0.0.0.0:80$/   {print \"Listen 0.0.0.0:81\"; c=1; next}
-        {print}
-        END{if(c==0) print \"Listen 81\"}
-      ' /etc/apache2/ports.conf > /tmp/ports.conf && mv /tmp/ports.conf /etc/apache2/ports.conf"
-    install_with_progress "Reiniciando Apache2" "service apache2 restart" || true
-  else
-    msg "Apache2 no encontrado aún" "$YELLOW"
-  fi
-}
-
-# ----------------------- Núcleo del instalador -------------------------
 
 run_installer(){
+  title "EJECUTANDO INSTALADOR"
   if [[ -f "$ADM_PATH/cabecalho" ]]; then
     fun_bar "bash \"$ADM_PATH/cabecalho\" --instalar"
+    print_center -verd "Instalador ejecutado"
   else
-    msg "Módulo 'cabecalho' no encontrado" "$YELLOW"
+    print_center -ama "Módulo 'cabecalho' no encontrado"
   fi
+  sleep 1
 }
 
 function_verify(){
-  # Escribe 'verify' en /bin/verifysys (ruta codificada en hex)
+  # Crea /bin/verifysys con 'verify' (ruta en hex)
+/bin/true >/dev/null 2>&1
   local phex="2f62696e2f766572696679737973"
   local path; path=$(echo -e "$(echo "$phex" | sed 's/../\\x&/g')")
   echo "verify" > "$path" 2>/dev/null || true
 }
 
-# ----------------------- Pantallas finales -----------------------------
+# ===================== Finalización =====================
+
+finish_screen(){
+  title "✅ INSTALACIÓN COMPLETADA"
+  print_center -verd "¡BIENVENIDO A VPS MÁSTER!"
+  echo
+  print_center -ama "Comandos disponibles:"
+  print_center -azu "• menu"
+  print_center -azu "• vps"
+  echo
+  print_center -ama "Ruta: $ADM_PATH"
+  print_center -ama "$(date -u '+%Y-%m-%d %H:%M:%S') (UTC)"
+  msg -bar
+}
 
 error_exit(){
-  clear; header "⚠️ ERROR DE INSTALACIÓN"
-  msg "Revise el log:" "$YELLOW"
-  msg "$LOG_FILE" "$CYAN"
-  msg "" "$BRAN"
-  msg "Ejecute: dpkg --configure -a" "$CYAN"
-  msg "y reintente la instalación." "$YELLOW"
-  hline; echo; exit 1
+  title "⚠️ ERROR DE INSTALACIÓN"
+  print_center -verm "Ocurrió un error durante la instalación"
+  print_center -ama "Revise el log:"
+  print_center -azu "$LOG_FILE"
+  msg -bar
+  exit 1
 }
 
-success_screen(){
-  clear; header "✅ INSTALACIÓN COMPLETADA"
-  msg "¡BIENVENIDO A VPS MÁSTER!" "$GREEN"
-  msg "" "$BRAN"
-  msg "✓ Instalación completada exitosamente" "$GREEN"
-  msg "" "$BRAN"
-  msg "Comandos disponibles:" "$YELLOW"
-  msg "• menu" "$CYAN"
-  msg "• vps" "$CYAN"
-  msg "" "$BRAN"
-  msg "Ruta: $ADM_PATH" "$YELLOW"
-  msg "$(date -u '+%Y-%m-%d %H:%M:%S') (UTC)" "$YELLOW"
-  hline; echo
-}
-
-# --------------------------- Flujo principal ---------------------------
+# ===================== Flujo principal =====================
 
 main(){
   ensure_log
   verify_root
-  trap 'true' INT TERM
 
-  clear; header "VPS MÁSTER v3.0"
-  msg "Creado por: SINNOMBRE22" "$YELLOW"; hline; sleep 1; clear
+  title "VPS MÁSTER (Diseño AGN • Colores del Proyecto)"
+  print_center -ama "Creado por: SINNOMBRE22"
+  msg -bar
+  sleep 1
 
-  header "PREPARANDO SISTEMA"
-  set_timezone
-  install_with_progress "Localización en_US.UTF-8" "locale-gen en_US.UTF-8"
-  install_with_progress "Fijando locale por defecto" "update-locale LANG=en_US.UTF-8"
+  prep_locale
+  init_paths
+  download_lista
+  dependencias
 
-  # Instalar net-tools temprano para detección IP/iface
-  install_with_progress "Instalando net-tools" "apt-get update -y && apt-get install -y net-tools" || true
+  # NO tocar configuración de Apache (pedido del autor)
 
-  echo; header "INSTALANDO VPS MÁSTER"
-
-  # Descargar lista (con fallback)
-  download_lista || true
-
-  # Inicializar rutas y detectar red
-  init_dirs
-  detect_net
-  echo
-
-  # Dependencias (iterativo, estilo AGN)
-  install_deps_iter
-
-  # Configurar Apache
-  setup_apache
-
-  # Descargar módulos del proyecto y ejecutar
   download_modules
   run_installer
   function_verify
 
   # Limpieza
   [[ -e "$HOME/lista" ]] && rm -f "$HOME/lista"
-  [[ -e "$HOME/fim"  ]] && rm -f "$HOME/fim"
 
-  success_screen
+  finish_screen
 }
 
 main || error_exit
