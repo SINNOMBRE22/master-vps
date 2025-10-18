@@ -3,7 +3,7 @@
 # ══════════════════════════════════════════════════════════
 # VPS MÁSTER - Sistema Instalación Modular Pro
 # Creado por: SINNOMBRE22
-# Fecha: 2025-10-18 09:07:03 UTC
+# Fecha: 2025-10-18 09:12:42 UTC
 # Versión: 2.0 PROFESIONAL
 # ══════════════════════════════════════════════════════════
 
@@ -103,11 +103,11 @@ init_dirs(){
 }
 
 # ══════════════════════════════════════════════════════════
-# 📦 INSTALAR DEPENDENCIAS ESENCIALES
+# 📦 INSTALAR DEPENDENCIAS DEL SISTEMA
 # ══════════════════════════════════════════════════════════
 
-install_deps(){
-  # LISTA ÚNICA Y ESENCIAL (sin duplicados)
+install_dependencies(){
+  # DEPENDENCIAS DEL SISTEMA (ÚNICAS)
   local deps="sudo git wget curl python python3"
   deps="$deps python3-pip build-essential openssl"
   deps="$deps screen cron iptables apache2 ufw"
@@ -170,7 +170,7 @@ install_deps(){
 }
 
 # ══════════════════════════════════════════════════════════
-# 📥 DESCARGAR MÓDULOS DESDE LISTA
+# 📥 DESCARGAR MÓDULOS (Scripts/Herramientas)
 # ══════════════════════════════════════════════════════════
 
 download_modules(){
@@ -199,7 +199,7 @@ download_modules(){
 }
 
 # ══════════════════════════════════════════════════════════
-# 🔐 EJECUTAR INSTALADOR
+# 🔐 EJECUTAR INSTALADOR PERSONALIZADO
 # ══════════════════════════════════════════════════════════
 
 run_installer(){
@@ -267,7 +267,7 @@ success_fun(){
   echo -e "                 • menu"
   echo -e "                 • vps"
   echo -e ""
-  echo -e "              2025-10-18 09:07:03 (UTC)"
+  echo -e "              2025-10-18 09:12:42 (UTC)"
   echo -e "${cor[5]}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
   echo -ne "\033[0m"
 }
@@ -339,7 +339,7 @@ echo -e "       ⇱ INSTALANDO VPS MÁSTER ⇲"
 echo -e "${cor[1]}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
 echo -e ""
 
-# Descargar lista
+# Descargar lista de módulos
 wget -q -O lista ${REPO_URL}/lista 2>/dev/null
 
 if [[ $? -ne 0 ]]; then
@@ -347,8 +347,10 @@ if [[ $? -ne 0 ]]; then
   error_fun
 fi
 
-# Inicializar
+# Inicializar directorios
 init_dirs
+
+# Configurar repositorios
 setup_repos
 
 # Actualizar sistema
@@ -356,21 +358,22 @@ echo -e "${cor[2]}Actualizando sistema..."
 fun_bar "apt-get update -y"
 fun_bar "apt-get upgrade -y"
 
-# Instalar dependencias
+# PASO 1: Instalar DEPENDENCIAS del sistema
 echo -e "\n${cor[5]}Instalando dependencias..."
 echo -e "${cor[3]}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-install_deps
+install_dependencies
 
-# Descargar módulos
+# PASO 2: Descargar MÓDULOS (scripts/herramientas)
 echo -e "\n${cor[5]}Descargando módulos..."
 echo -e "${cor[3]}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
 download_modules
 
-# Finalizar
+# Configurar
 setup_apache
 run_installer
 function_verify
 
+# Limpiar
 [[ -e $HOME/lista ]] && rm $HOME/lista
 [[ -e $HOME/fim ]] && rm $HOME/fim
 
