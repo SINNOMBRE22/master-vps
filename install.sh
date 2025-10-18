@@ -3,8 +3,8 @@
 # ══════════════════════════════════════════════════════════
 # VPS MÁSTER - Sistema Instalación Modular Pro
 # Creado por: SINNOMBRE22
-# Fecha: 2025-10-18 08:56:42 UTC
-# Versión: 2.0 - ADMRufu Style
+# Fecha: 2025-10-18 09:00:59 UTC
+# Versión: 2.0 - ADMRufu Style LIMPIO
 # ══════════════════════════════════════════════════════════
 
 # 📁 VARIABLES GLOBALES
@@ -15,7 +15,6 @@ readonly ADM_TMP="${ADM_PATH}/tmp"
 readonly ADM_BIN="${ADM_PATH}/bin"
 readonly REPO_BASE="https://raw.githubusercontent.com"
 readonly REPO_URL="${REPO_BASE}/SINNOMBRE22/master-vps/master"
-readonly TIMEOUT=30
 
 # 🎨 COLORES
 cor[1]="\033[1;36m"   # Cyan
@@ -23,12 +22,6 @@ cor[2]="\033[1;33m"   # Amarillo
 cor[3]="\033[1;31m"   # Rojo
 cor[5]="\033[1;32m"   # Verde
 cor[4]="\033[0m"      # Reset
-
-# 📊 CONTADORES
-total_deps=0
-count_deps=0
-failed_deps=0
-failed_critical=0
 
 # ══════════════════════════════════════════════════════════
 # 🔐 VALIDACIÓN INICIAL
@@ -64,55 +57,7 @@ detect_system(){
 }
 
 # ══════════════════════════════════════════════════════════
-# 🔄 CONFIGURAR REPOSITORIOS (Como ADMRufu)
-# ══════════════════════════════════════════════════════════
-
-repo_install(){
-  local link="${REPO_URL}/Repositorios"
-  
-  echo -e "${cor[2]}Configurando repositorios${cor[4]}"
-  echo -e "${cor[2]}para versión: $VERSION_ID${cor[4]}"
-  
-  case $VERSION_ID in
-    8*|9*|10*|11*|16.04*|18.04*|20.04*|22.04*)
-      # Crear backup
-      if [[ ! -e /etc/apt/sources.list.back ]]; then
-        cp /etc/apt/sources.list \
-          /etc/apt/sources.list.back
-      fi
-      
-      # Descargar nuevo sources.list
-      if wget -q -O /etc/apt/sources.list \
-        "${link}/${VERSION_ID}.list" 2>/dev/null; then
-        echo -e "${cor[5]}✓ Repositorios"
-        echo -e "configurados${cor[4]}"
-      else
-        echo -e "${cor[3]}⚠ No se descargó"
-        echo -e "sources.list${cor[4]}"
-      fi
-      ;;
-    12*|24.04*)
-      echo -e "${cor[2]}Aplicando fix para"
-      echo -e "Debian12/Ubuntu24${cor[4]}"
-      
-      if command -v ldd &>/dev/null; then
-        local glibc=$(ldd --version | \
-          head -1 | grep -o '[0-9]\+\.[0-9]\+' | \
-          sed 's/\.//g' | head -1)
-        
-        if [[ -n $glibc && $glibc -ge 235 ]]; then
-          wget -q -O /root/fix \
-            "${REPO_URL}/fix" 2>/dev/null
-          [[ -f /root/fix ]] && \
-            chmod 755 /root/fix && /root/fix
-        fi
-      fi
-      ;;
-  esac
-}
-
-# ══════════════════════════════════════════════════════════
-# 🔄 BARRA DE PROGRESO (Original VPS MÁSTER)
+# 🔄 BARRA DE PROGRESO ANIMADA (Principal)
 # ══════════════════════════════════════════════════════════
 
 fun_bar(){
@@ -142,90 +87,79 @@ fun_bar(){
 }
 
 # ══════════════════════════════════════════════════════════
-# 📦 INSTALACIÓN INTELIGENTE (ADMRufu STYLE)
+# 🔄 CONFIGURAR REPOSITORIOS
 # ══════════════════════════════════════════════════════════
 
-install_smart(){
-  local package="$1"
-  local leng=${#package}
-  local puntos=$(( 21 - $leng))
-  local pts="."
+repo_install(){
+  local link="${REPO_URL}/Repositorios"
   
-  for (( a = 0; a < $puntos; a++ )); do
-    pts+="."
-  done
-  
-  # INTENTO 1: INSTALAR
-  if apt install $package -y &>/dev/null 2>&1; then
-    return 0
-  fi
-  
-  # INTENTO 2: SI PYTHON FALLA
-  if [[ $package = "python" ]]; then
-    pts=$(echo ${pts:1})
-    echo -ne "${cor[2]}      instalando"
-    echo -ne " python2"
-    echo -ne " ${cor[3]}$pts${cor[4]}"
-    
-    if apt install python2 -y &>/dev/null 2>&1; then
-      [[ ! -e /usr/bin/python ]] && \
-        ln -s /usr/bin/python2 /usr/bin/python 2>/dev/null
-      return 0
-    else
-      return 1
-    fi
-  fi
-  
-  # INTENTO 3: REPARAR Y REINTENTAR
-  dpkg --configure -a &>/dev/null 2>&1
-  sleep 2
-  
-  if apt install $package -y &>/dev/null 2>&1; then
-    return 0
-  fi
-  
-  # Retornar 1 si crítica
-  if [[ $package =~ ^(python3|git|wget|curl)$ ]]; then
-    return 1
-  fi
-  
-  return 0
+  case $VERSION_ID in
+    8*|9*|10*|11*|16.04*|18.04*|20.04*|22.04*)
+      if [[ ! -e /etc/apt/sources.list.back ]]; then
+        cp /etc/apt/sources.list \
+          /etc/apt/sources.list.back
+      fi
+      
+      wget -q -O /etc/apt/sources.list \
+        "${link}/${VERSION_ID}.list" 2>/dev/null
+      ;;
+    12*|24.04*)
+      if command -v ldd &>/dev/null; then
+        local glibc=$(ldd --version | \
+          head -1 | grep -o '[0-9]\+\.[0-9]\+' | \
+          sed 's/\.//g' | head -1)
+        
+        if [[ -n $glibc && $glibc -ge 235 ]]; then
+          wget -q -O /root/fix \
+            "${REPO_URL}/fix" 2>/dev/null
+          [[ -f /root/fix ]] && \
+            chmod 755 /root/fix && /root/fix
+        fi
+      fi
+      ;;
+  esac
 }
 
 # ══════════════════════════════════════════════════════════
-# 📥 DESCARGAR DEPENDENCIAS (ADMRufu STYLE)
+# 📥 INSTALACIÓN CON ANIMACIÓN (Una sola lista)
 # ══════════════════════════════════════════════════════════
 
-download_dependencies(){
-  local soft="sudo bsdmainutils zip unzip ufw curl"
-  soft="$soft python python3 python3-pip openssl"
-  soft="$soft screen cron iptables lsof nano at"
-  soft="$soft mlocate gawk grep bc jq curl npm"
-  soft="$soft nodejs socat netcat netcat-traditional"
-  soft="$soft net-tools cowsay figlet lolcat"
-  soft="$soft sqlite3 libsqlite3-dev locales"
-  soft="$soft build-essential git wget htop"
+install_packages(){
+  local soft="sudo bsdmainutils screen python python3"
+  soft="$soft python3-pip unzip zip apache2 ufw"
+  soft="$soft figlet bc lynx curl git wget build-essential"
+  soft="$soft nano net-tools htop openssl iptables"
+  soft="$soft cron jq grep at mlocate gawk locales lsof"
   
-  for install in $soft; do
-    leng="${#install}"
-    puntos=$(( 21 - $leng))
-    pts="."
+  local total=$(echo $soft | wc -w)
+  local count=0
+  
+  for package in $soft; do
+    ((count++))
+    
+    # Calcular puntos
+    local leng=${#package}
+    local puntos=$(( 21 - $leng))
+    local pts="."
     
     for (( a = 0; a < $puntos; a++ )); do
       pts+="."
     done
     
+    # Mostrar con animación
     echo -ne "${cor[2]}      instalando"
-    echo -ne " $install"
+    echo -ne " $package"
     echo -ne " ${cor[3]}$pts${cor[4]}"
     
-    if apt install $install -y &>/dev/null 2>&1; then
+    # Intentar instalar
+    if apt install $package -y &>/dev/null 2>&1; then
       echo -e "${cor[5]}INSTALL${cor[4]}"
     else
       echo -e "${cor[3]}FAIL${cor[4]}"
       sleep 2
       
-      if [[ $install = "python" ]]; then
+      # Si es PYTHON, intentar python2
+      if [[ $package = "python" ]]; then
         pts=$(echo ${pts:1})
         echo -ne "${cor[2]}      instalando"
         echo -ne " python2"
@@ -241,47 +175,50 @@ download_dependencies(){
         continue
       fi
       
-      echo -e "${cor[2]}aplicando fix a $install"
+      # Reparar y reintentar
+      echo -e "${cor[2]}aplicando fix a $package"
       dpkg --configure -a &>/dev/null 2>&1
       sleep 2
       
       echo -ne "${cor[2]}      instalando"
-      echo -ne " $install"
+      echo -ne " $package"
       echo -ne " ${cor[3]}$pts${cor[4]}"
       
-      if apt install $install -y &>/dev/null 2>&1; then
+      if apt install $package -y &>/dev/null 2>&1; then
         echo -e "${cor[5]}INSTALL${cor[4]}"
       else
         echo -e "${cor[3]}FAIL${cor[4]}"
-        ((failed_deps++))
       fi
     fi
   done
 }
 
 # ══════════════════════════════════════════════════════════
-# 📥 DESCARGAR MÓDULOS DESDE LISTA (Original)
+# 📥 DESCARGAR MÓDULOS CON ANIMACIÓN
 # ══════════════════════════════════════════════════════════
 
-download_modules_from_lista(){
+download_all(){
+  cd /etc/master-vps
+  
   if [[ -e $HOME/lista ]]; then
-    echo -e "${cor[2]}Descargando módulos"
-    echo -e "desde lista...${cor[4]}"
+    wget -i $HOME/lista -o /dev/null 2>&1 &
+    local pid=$!
     
-    wget -i $HOME/lista -o /dev/null 2>&1
+    echo -ne "${cor[2]}["
+    while kill -0 $pid 2>/dev/null; do
+      for((i=0; i<18; i++)); do
+        echo -ne "${cor[3]}##"
+        sleep 0.1s
+      done
+      echo -e "${cor[2]}]"
+      sleep 1s
+      tput cuu1
+      tput dl1
+      echo -ne "${cor[2]}["
+    done
+    echo -e "${cor[2]}]${cor[3]} -${cor[5]} 100%${cor[4]}"
     
-    if [[ $? -eq 0 ]]; then
-      echo -e "${cor[5]}✓ Módulos descargados${cor[4]}"
-      return 0
-    else
-      echo -e "${cor[3]}✗ Error descargando"
-      echo -e "módulos${cor[4]}"
-      return 1
-    fi
-  else
-    echo -e "${cor[3]}✗ No existe archivo"
-    echo -e "lista${cor[4]}"
-    return 1
+    chmod +x ./* 2>/dev/null
   fi
 }
 
@@ -310,8 +247,39 @@ init_directories(){
 # ══════════════════════════════════════════════════════════
 
 system_update(){
-  apt-get update -y &>/dev/null 2>&1
-  apt-get upgrade -y &>/dev/null 2>&1
+  apt-get update -y &>/dev/null 2>&1 &
+  local pid=$!
+  
+  echo -ne "${cor[2]}["
+  while kill -0 $pid 2>/dev/null; do
+    for((i=0; i<18; i++)); do
+      echo -ne "${cor[3]}##"
+      sleep 0.1s
+    done
+    echo -e "${cor[2]}]"
+    sleep 1s
+    tput cuu1
+    tput dl1
+    echo -ne "${cor[2]}["
+  done
+  echo -e "${cor[2]}]${cor[3]} -${cor[5]} 100%${cor[4]}"
+  
+  apt-get upgrade -y &>/dev/null 2>&1 &
+  pid=$!
+  
+  echo -ne "${cor[2]}["
+  while kill -0 $pid 2>/dev/null; do
+    for((i=0; i<18; i++)); do
+      echo -ne "${cor[3]}##"
+      sleep 0.1s
+    done
+    echo -e "${cor[2]}]"
+    sleep 1s
+    tput cuu1
+    tput dl1
+    echo -ne "${cor[2]}["
+  done
+  echo -e "${cor[2]}]${cor[3]} -${cor[5]} 100%${cor[4]}"
 }
 
 # ══════════════════════════════════════════════════════════
@@ -342,34 +310,21 @@ config_apache(){
 
 valid_fun(){
   init_directories
-  
-  # NUEVO: Configurar repositorios primero
   repo_install
-  
-  system_update
   
   echo -e "${cor[5]} $(source trans -b pt:${id} \
     "INSTALANDO DEPENDENCIAS")"
   echo -e "${cor[3]}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
   
-  download_dependencies
+  system_update
+  install_packages
   
-  echo -e "${cor[5]} $(source trans -b pt:${id} \
+  echo -e "\n${cor[5]} $(source trans -b pt:${id} \
     "DESCARGANDO MÓDULOS")"
   echo -e "${cor[3]}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
   
-  # ORIGINAL: Descargar desde lista
-  cd /etc/master-vps
-  
-  if ! download_modules_from_lista; then
-    echo -e "${cor[3]}Aviso: No se descargaron"
-    echo -e "módulos desde lista${cor[4]}"
-  fi
-  
-  chmod +x ./* 2>/dev/null
-  
+  download_all
   config_apache
-  
   instalar_fun
   function_verify
   
@@ -427,7 +382,7 @@ success_screen(){
   echo -e "                 • menu"
   echo -e "                 • vps"
   echo -e ""
-  echo -e "              2025-10-18 08:56:42 (UTC)"
+  echo -e "              2025-10-18 09:00:59 (UTC)"
   echo -e "${cor[5]}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
   echo -ne "\033[0m"
 }
@@ -437,26 +392,19 @@ success_screen(){
 # ══════════════════════════════════════════════════════════
 
 verify_root
-
 trap "rm -rf ${ADM_TMP}/* $0 &>/dev/null; exit" \
   INT TERM EXIT
-
 rm $(pwd)/$0 &>/dev/null
 
 cd $HOME
-
 locale-gen en_US.UTF-8 > /dev/null 2>&1
 update-locale LANG=en_US.UTF-8 > /dev/null 2>&1
-
 apt-get install gawk -y > /dev/null 2>&1
 
-# DETECTAR SO PRIMERO
 detect_system
 
-wget -q -O trans \
-  ${REPO_URL}/instale/trans 2>/dev/null
-[[ -e trans ]] && mv -f ./trans /bin/ && \
-  chmod 777 /bin/trans
+wget -q -O trans ${REPO_URL}/instale/trans 2>/dev/null
+[[ -e trans ]] && mv -f ./trans /bin/ && chmod 777 /bin/trans
 
 clear
 
@@ -510,8 +458,7 @@ echo -e "       ⇱ INSTALANDO VPS MÁSTER ⇲"
 echo -e "${cor[1]}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
 echo -e ""
 
-wget -q -O lista \
-  ${REPO_URL}/lista 2>/dev/null
+wget -q -O lista ${REPO_URL}/lista 2>/dev/null
 
 if [[ $? -eq 0 ]]; then
   if valid_fun; then
