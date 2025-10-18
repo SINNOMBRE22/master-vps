@@ -1,201 +1,227 @@
 #!/bin/bash
 
-# ════════════════════════════════════════════════════════════════════
-# VPS MÁSTER - Sistema de Instalación
+# ════════════════════════════════════════════════════════════════
+# VPS MÁSTER - Sistema de Instalación Modular
 # Creado por: SINNOMBRE22
 # Fecha: 2025-10-17 20:34:37 UTC
-# ════════════════════════════════════════════════════════════════════
+# ════════════════════════════════════════════════════════════════
 
-function_verify () {
-  echo "verify" > $(echo -e $(echo 2f62696e2f766572696679737973|sed 's/../\\x&/g;s/$/ /'))
-}
+# 📁 Estructura de directorios (IGUAL A ANTES pero mejorada)
+ADM_PATH="/etc/master-vps"
+ADM_MODULES="${ADM_PATH}/modules"
+ADM_DEPS="${ADM_PATH}/deps"
+ADM_TMP="${ADM_PATH}/tmp"
+ADM_BIN="${ADM_PATH}/bin"
 
-fun_bar () {
-comando[0]="$1"
-comando[1]="$2"
- (
-[[ -e $HOME/fim ]] && rm $HOME/fim
-${comando[0]} -y > /dev/null 2>&1
-${comando[1]} -y > /dev/null 2>&1
-touch $HOME/fim
- ) > /dev/null 2>&1 &
-echo -ne "\033[1;33m ["
-while true; do
-   for((i=0; i<18; i++)); do
-   echo -ne "\033[1;31m##"
-   sleep 0.1s
-   done
-   [[ -e $HOME/fim ]] && rm $HOME/fim && break
-   echo -e "\033[1;33m]"
-   sleep 1s
-   tput cuu1
-   tput dl1
-   echo -ne "\033[1;33m ["
-done
-echo -e "\033[1;33m]\033[1;31m -\033[1;32m 100%\033[1;37m"
-}
-
-instalar_fun () {
-cd /etc/master-vps && bash cabecalho --instalar
-}
-
-elimined_fun () {
-text=$(source trans -b pt:${id} "Instalando")
-echo -e "${cor[2]} Update"
-fun_bar 'apt-get install screen' 'apt-get install python'
-echo -e "${cor[2]} Upgrade"
-fun_bar 'apt-get install lsof' 'apt-get install python3-pip'
-echo -e "${cor[2]} $text Lsof"
-fun_bar 'apt-get install python' 'apt-get install unzip'
-echo -e "${cor[2]} $text Python3"
-fun_bar 'apt-get install zip' 'apt-get install apache2'
-echo -e "${cor[2]} $text Unzip"
-fun_bar 'apt-get install ufw'
-echo -e "${cor[2]} $text Screen"
-fun_bar 'apt-get install figlet' 'apt-get install bc'
-echo -e "${cor[2]} $text Figlet"
-fun_bar 'apt-get install lynx' 'apt-get install curl'
-sed -i "s;Listen 80;Listen 81;g" /etc/apache2/ports.conf
-service apache2 restart > /dev/null 2>&1
-}
-
-valid_fun () {
-[[ -d /etc/master-vps ]] && rm -rf /etc/master-vps
-mkdir /etc/master-vps
-cd /etc/master-vps
-echo "cd /etc/master-vps && bash ./menu" > /bin/menu
-echo "cd /etc/master-vps && bash ./menu" > /bin/vps
-chmod +x /bin/menu
-chmod +x /bin/vps
-cd /etc/master-vps
-touch /etc/master-vps/index.html
-wget -i $HOME/lista -o /dev/null
-wget -O trans https://raw.githubusercontent.com/SINNOMBRE22/master-vps/master/Modulos/Pingu -o /dev/null 2>&1
-echo -e "${cor[5]} $(source trans -b pt:${id} "INSTALANDO DEPENDENCIAS")"
-echo -e "${cor[3]}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-cd /etc/master-vps
-chmod +x ./*
-instalar_fun
-function_verify
-[[ -e $HOME/lista ]] && rm $HOME/lista
-clear
-echo -e "${cor[5]}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-echo -e "                      ⇱ PROCEDIMIENTO REALIZADO ⇲"
-echo -e "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-echo -e ""
-echo -e "                      ¡BIENVENIDO A VPS MÁSTER!"
-echo -e ""
-echo -e "                  ✓ INSTALACION COMPLETADA EXITOSAMENTE"
-echo -e ""
-echo -e "                    CONFIGURE SU VPS CON EL COMANDO:"
-echo -e ""
-echo -e "                          USE LOS COMANDOS:"
-echo -e "                             • menu"
-echo -e "                             • vps"
-echo -e ""
-echo -e "                      2025-10-17 20:34:37 (UTC)"
-echo -e "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-echo -ne "\033[0m"
-}
-
-error_fun () {
-clear
-echo -e "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-echo -e "                        ⇱ ERROR DETECTADO ⇲"
-echo -e "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-echo -e ""
-echo -e "     ✗ Your apt-get Error!"
-echo -e ""
-echo -e "     • Reinicia el sistema"
-echo -e "     • Ejecuta: dpkg --configure -a"
-echo -e "     • Verifica tu Source.list"
-echo -e ""
-echo -e "     wget https://raw.githubusercontent.com/SINNOMBRE22/master-vps/"
-echo -e "             master/Install/apt-source.sh"
-echo -e ""
-echo -e "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-echo -ne "\033[0m"
-exit 1
-}
-
-# ════════════════════════════════════════════════════════════════════
-# INICIO DEL SCRIPT
-# ════════════════════════════════════════════════════════════════════
-
-rm $(pwd)/$0
-
-# Definir colores
+# 🎨 Colores (tu configuración actual)
 cor[1]="\033[1;36m"   # Cyan
 cor[2]="\033[1;33m"   # Amarillo
 cor[3]="\033[1;31m"   # Rojo
 cor[5]="\033[1;32m"   # Verde
 cor[4]="\033[0m"      # Reset
 
-cd $HOME
-locale-gen en_US.UTF-8 > /dev/null 2>&1
-update-locale LANG=en_US.UTF-8 > /dev/null 2>&1
-apt-get install gawk -y > /dev/null 2>&1
-wget -O trans https://raw.githubusercontent.com/SINNOMBRE22/master-vps/master/instale/trans -o /dev/null 2>&1
-mv -f ./trans /bin/ && chmod 777 /bin/*
+# ════════════════════════════════════════════════════════════════
+# 📥 DESCARGA MODULAR DE DEPENDENCIAS (NUEVO - Como ADMRufu)
+# ════════════════════════════════════════════════════════════════
 
-clear
+download_deps(){
+  # Lista de dependencias básicas para instalar
+  soft="screen python lsof python3-pip unzip zip apache2 ufw figlet bc lynx curl git wget build-essential nano net-tools htop"
+  
+  echo -e "${cor[5]}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+  echo -e "${cor[2]} Instalando Dependencias del Sistema"
+  echo -e "${cor[5]}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+  
+  for paquete in $soft; do
+    leng="${#paquete}"
+    puntos=$(( 25 - $leng))
+    pts="."
+    
+    for (( a = 0; a < $puntos; a++ )); do
+      pts+="."
+    done
+    
+    echo -ne "${cor[2]}  ► Instalando $paquete ${cor[3]}$pts${cor[4]} "
+    
+    if apt-get install $paquete -y &>/dev/null; then
+      echo -e "${cor[5]}✓${cor[4]}"
+    else
+      echo -e "${cor[3]}✗${cor[4]}"
+      # Retry una vez
+      sleep 1
+      if apt-get install $paquete -y &>/dev/null; then
+        echo -e "${cor[5]}✓ (reintentado)${cor[4]}"
+      else
+        echo -e "${cor[3]}✗ Falló definitivamente${cor[4]}"
+      fi
+    fi
+  done
+}
 
-# Pantalla Principal
-echo -e "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-echo -e "                              ⇱ VPS MÁSTER ⇲"
-echo -e "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-echo -e ""
-echo -e "                           Creado por: SINNOMBRE22"
-echo -e ""
-echo -e "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-sleep 2
+# ════════════════════════════════════════════════════════════════
+# 📦 DESCARGA DE MÓDULOS EXTERNOS (Como ADMRufu)
+# ════════════════════════════════════════════════════════════════
 
-clear
+download_modules(){
+  # Repository base
+  REPO_URL="https://raw.githubusercontent.com/SINNOMBRE22/master-vps/master"
+  
+  # Módulos a descargar
+  modules_list=(
+    "menu:${ADM_PATH}/menu"
+    "cabecalho:${ADM_PATH}/cabecalho"
+    "bashrc:${ADM_PATH}/bashrc"
+    "verificar:${ADM_PATH}/verificar"
+  )
+  
+  echo -e "${cor[5]}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+  echo -e "${cor[2]} Descargando Módulos"
+  echo -e "${cor[5]}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+  
+  for modulo_info in "${modules_list[@]}"; do
+    modulo=$(echo $modulo_info | cut -d':' -f1)
+    ruta=$(echo $modulo_info | cut -d':' -f2)
+    
+    echo -ne "${cor[2]}  ► Descargando $modulo${cor[3]}..."
+    
+    if wget -O "$ruta" "${REPO_URL}/modules/${modulo}" &>/dev/null; then
+      chmod +x "$ruta" 2>/dev/null
+      echo -e "${cor[5]} ✓${cor[4]}"
+    else
+      echo -e "${cor[3]} ✗ FALLO${cor[4]}"
+      echo -e "${cor[3]}    Error: No se pudo descargar $modulo${cor[4]}"
+      return 1  # Sale con error
+    fi
+  done
+  
+  return 0  # Éxito
+}
 
-# Seleccionar Idioma
-echo -e "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-echo -e "                         ⇱ SELECCIONAR IDIOMA ⇲"
-echo -e "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-echo -e ""
-echo -e "     [1] - PT-BR 🇧🇷"
-echo -e "     [2] - EN 🇺🇸"
-echo -e "     [3] - ES 🇪🇸"
-echo -e "     [4] - FR 🇫🇷"
-echo -e ""
-echo -e "     SELECCIONA TU OPCION: \c"
-read lang
-echo -e "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+# ════════════════════════════════════════════════════════════════
+# 🔧 FUNCIÓN DE INICIALIZACIÓN (Mantiene TU configuración)
+# ════════════════════════════════════════════════════════════════
 
-case $lang in
-1)
-id="pt"
-;;
-2)
-id="en"
-;;
-3)
-id="es"
-;;
-4)
-id="fr"
-;;
-*)
-id="es"
-;;
-esac
+init_directories(){
+  # Crea la estructura EXACTA que ya tienes
+  [[ -d "${ADM_PATH}" ]] && rm -rf "${ADM_PATH}"
+  
+  mkdir -p "${ADM_PATH}"
+  mkdir -p "${ADM_MODULES}"
+  mkdir -p "${ADM_DEPS}"
+  mkdir -p "${ADM_TMP}"
+  mkdir -p "${ADM_BIN}"
+  
+  # Comandos de acceso (como antes)
+  echo "cd ${ADM_PATH} && bash ./menu" > /bin/menu
+  echo "cd ${ADM_PATH} && bash ./menu" > /bin/vps
+  chmod +x /bin/menu /bin/vps
+  
+  # Index HTML (como antes)
+  touch "${ADM_PATH}/index.html"
+  
+  echo -e "${cor[5]}✓ Directorios creados correctamente${cor[4]}"
+}
 
-clear
+# ════════════════════════════════════════════════════════════════
+# 🚀 FLUJO PRINCIPAL MEJORADO
+# ════════════════════════════════════════════════════════════════
 
-# Instalando Sistema
-echo -e "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-echo -e "                       ⇱ INSTALANDO VPS MÁSTER ⇲"
-echo -e "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-echo -e ""
+main_install(){
+  clear
+  
+  echo -e "${cor[1]}════════════════════════════════════════════"
+  echo -e "${cor[2]}  VPS MÁSTER - INSTALACIÓN MODULAR"
+  echo -e "${cor[1]}════════════════════════════════════════════${cor[4]}"
+  sleep 2
+  
+  # 1. Inicializar directorios
+  echo -e "\n${cor[5]}[1/5] Preparando estructura...${cor[4]}"
+  init_directories
+  
+  # 2. Actualizar sistema
+  echo -e "\n${cor[5]}[2/5] Actualizando sistema...${cor[4]}"
+  apt-get update -y &>/dev/null
+  apt-get upgrade -y &>/dev/null
+  
+  # 3. Descargar dependencias
+  echo -e "\n${cor[5]}[3/5] Descargando dependencias...${cor[4]}"
+  download_deps
+  
+  # 4. Descargar módulos
+  echo -e "\n${cor[5]}[4/5] Descargando módulos...${cor[4]}"
+  if ! download_modules; then
+    echo -e "\n${cor[3]}✗ Error en descarga de módulos${cor[4]}"
+    error_fun
+    return 1
+  fi
+  
+  # 5. Finalizar
+  echo -e "\n${cor[5]}[5/5] Finalizando instalación...${cor[4]}"
+  
+  # Copiar archivo de instalación para posterior uso
+  cp -f $0 "${ADM_PATH}/install.sh"
+  
+  # Ejecutar cabecalho si existe
+  [[ -x "${ADM_PATH}/cabecalho" ]] && cd "${ADM_PATH}" && bash cabecalho --instalar
+  
+  # Mensaje final
+  clear
+  echo -e "${cor[1]}════════════════════════════════════════════"
+  echo -e "${cor[5]}  ✓ INSTALACIÓN COMPLETADA"
+  echo -e "${cor[1]}════════════════════════════════════════════${cor[4]}"
+  echo -e "${cor[2]}  Comandos disponibles:${cor[4]}"
+  echo -e "${cor[5]}  • menu${cor[4]}"
+  echo -e "${cor[5]}  • vps${cor[4]}"
+  echo -e "${cor[1]}════════════════════════════════════════════${cor[4]}\n"
+  
+  return 0
+}
 
-wget -O lista https://raw.githubusercontent.com/SINNOMBRE22/master-vps/master/lista -o /dev/null
+# ════════════════════════════════════════════════════════════════
+# ⚠️ MANEJO DE ERRORES
+# ════════════════════════════════════════════════════════════════
 
-if [[ $? -eq 0 ]]; then
-   valid_fun
-else
-   error_fun
+error_fun(){
+  clear
+  echo -e "${cor[3]}════════════════════════════════════════════"
+  echo -e "${cor[3]}  ✗ ERROR EN LA INSTALACIÓN"
+  echo -e "${cor[3]}════════════════════════════════════════════${cor[4]}"
+  echo -e "${cor[2]}  Opciones:${cor[4]}"
+  echo -e "${cor[5]}  1. Reintentar instalación${cor[4]}"
+  echo -e "${cor[5]}  2. Reparar repositorios${cor[4]}"
+  echo -e "${cor[5]}  3. Salir${cor[4]}"
+  echo -e "${cor[3]}════════════════════════════════════════════${cor[4]}\n"
+  
+  read -p "Selecciona opción: " -e -i 1 opcion
+  
+  case $opcion in
+    1) main_install ;;
+    2) 
+      dpkg --configure -a &>/dev/null
+      apt-get install -f -y &>/dev/null
+      main_install
+      ;;
+    3) exit 1 ;;
+  esac
+}
+
+# ════════════════════════════════════════════════════════════════
+# 🎯 INICIO DEL SCRIPT
+# ════════════════════════════════════════════════════════════════
+
+# Validar que sea ROOT
+if [[ ! $(id -u) = 0 ]]; then
+  echo -e "${cor[3]}✗ DEBE EJECUTAR COMO ROOT${cor[4]}"
+  exit 1
 fi
+
+# Control+C para salir limpio
+trap "rm -rf ${ADM_TMP}/*; exit" INT TERM EXIT
+
+# Eliminar script de sí mismo después de ejecutarse
+rm $(pwd)/$0 &>/dev/null
+
+# Ejecutar instalación
+main_install
+
+exit $?
