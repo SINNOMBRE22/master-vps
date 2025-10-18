@@ -67,13 +67,13 @@ echo "cd /etc/vps-master && bash ./menu" > /bin/menu
 echo "cd /etc/vps-master && bash ./menu" > /bin/vps
 chmod +x /bin/menu
 chmod +x /bin/vps
-cd /etc/vps-master
+cd /etc/master-vps
 touch /etc/master-vps/index.html
 wget -i $HOME/lista -o /dev/null
-wget -O trans https://raw.githubusercontent.com/SINNOMBRE22/master-vps/master/Modulo/michu -o /dev/null 2>&1
+wget -O trans https://raw.githubusercontent.com/SINNOMBRE22/master-vps/master/Modulo/Pingüino -o /dev/null 2>&1
 echo -e "${cor[5]} $(source trans -b pt:${id} "INSTALANDO DEPENDENCIAS")"
 echo -e "${cor[3]}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-cd /etc/vps-master
+cd /etc/master-vps
 chmod +x ./*
 instalar_fun
 function_verify
