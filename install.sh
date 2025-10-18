@@ -3,70 +3,93 @@
 # ══════════════════════════════════════════════════════════
 # VPS MÁSTER - Sistema Instalación Modular Pro
 # Creado por: SINNOMBRE22
-# Fecha: 2025-10-18 09:12:42 UTC
-# Versión: 2.0 PROFESIONAL
+# Fecha: 2025-10-18 09:21:53 UTC
+# Versión: 2.1 OPTIMIZADO
 # ══════════════════════════════════════════════════════════
 
 # 📁 VARIABLES GLOBALES
 readonly ADM_PATH="/etc/master-vps"
 readonly REPO_URL="https://raw.githubusercontent.com/SINNOMBRE22/master-vps/master"
+readonly COLOR_CYAN="\033[1;36m"
+readonly COLOR_YELLOW="\033[1;33m"
+readonly COLOR_RED="\033[1;31m"
+readonly COLOR_GREEN="\033[1;32m"
+readonly COLOR_RESET="\033[0m"
+readonly BOX_WIDTH=60
 
-# 🎨 COLORES
-cor[1]="\033[1;36m"   # Cyan
-cor[2]="\033[1;33m"   # Amarillo
-cor[3]="\033[1;31m"   # Rojo
-cor[5]="\033[1;32m"   # Verde
-cor[4]="\033[0m"      # Reset
+# ══════════════════════════════════════════════════════════
+# 🎨 FUNCIONES DE ESTILOS
+# ══════════════════════════════════════════════════════════
+
+print_header(){
+  local title="$1"
+  echo -e "\n${COLOR_CYAN}$(printf '═%.0s' {1..60})${COLOR_RESET}"
+  printf "${COLOR_CYAN}%-60s${COLOR_RESET}\n" "  ⇱ $title ⇲" | head -c 60
+  echo ""
+  echo -e "${COLOR_CYAN}$(printf '═%.0s' {1..60})${COLOR_RESET}\n"
+}
+
+print_line(){
+  echo -e "${COLOR_CYAN}$(printf '═%.0s' {1..60})${COLOR_RESET}"
+}
+
+print_message(){
+  local msg="$1"
+  local color="$2"
+  printf "${color}%-60s${COLOR_RESET}\n" "  $msg"
+}
 
 # ══════════════════════════════════════════════════════════
 # 🔐 VALIDACIÓN
 # ══════════════════════════════════════════════════════════
 
-function_verify(){
-  echo "verify" > $(echo -e $(echo 2f62696e2f766572696679737973|sed 's/../\\x&/g;s/$/ /'))
-}
-
 verify_root(){
   if [[ ! $(id -u) = 0 ]]; then
     clear
-    echo -e "${cor[3]}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-    echo -e "${cor[3]}⇱ ERROR DE EJECUCIÓN ⇲"
-    echo -e "${cor[3]}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-    echo -e "${cor[2]}"
-    echo -e "DEBE EJECUTAR COMO ROOT"
-    echo -e ""
-    echo -e "Intenta:"
-    echo -e "sudo bash install.sh"
-    echo -e "${cor[3]}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${cor[4]}\n"
+    print_header "ERROR DE EJECUCIÓN"
+    print_message "DEBE EJECUTAR COMO ROOT" "$COLOR_RED"
+    print_message "" "$COLOR_RESET"
+    print_message "Intenta:" "$COLOR_YELLOW"
+    print_message "sudo bash install.sh" "$COLOR_YELLOW"
+    print_line
+    echo ""
     exit 1
   fi
 }
 
+function_verify(){
+  echo "verify" > $(echo -e $(echo 2f62696e2f766572696679737973|sed 's/../\\x&/g;s/$/ /'))
+}
+
 # ══════════════════════════════════════════════════════════
-# 🔄 BARRA DE PROGRESO
+# ⏳ ANIMACIÓN UNIFICADA
 # ══════════════════════════════════════════════════════════
 
-fun_bar(){
+animated_progress(){
+  local title="$1"
+  local command="$2"
+  
+  printf "${COLOR_YELLOW}%-50s${COLOR_RESET}" "  $title"
+  
   (
     [[ -e $HOME/fim ]] && rm $HOME/fim
-    $1 > /dev/null 2>&1
+    eval "$command" > /dev/null 2>&1
     touch $HOME/fim
   ) > /dev/null 2>&1 &
   
-  echo -ne "${cor[2]}["
-  while true; do
-    for((i=0; i<18; i++)); do
-      echo -ne "${cor[3]}##"
-      sleep 0.1s
-    done
-    [[ -e $HOME/fim ]] && rm $HOME/fim && break
-    echo -e "${cor[2]}]"
-    sleep 1s
-    tput cuu1
-    tput dl1
-    echo -ne "${cor[2]}["
+  local pid=$!
+  local spinner=( "⠋" "⠙" "⠹" "⠸" "⠼" "⠴" "⠦" "⠧" "⠇" "⠏" )
+  local i=0
+  
+  while kill -0 $pid 2>/dev/null; do
+    printf "\r${COLOR_YELLOW}%-50s ${COLOR_GREEN}${spinner[$i]}${COLOR_RESET}" "  $title"
+    ((i++))
+    i=$((i % ${#spinner[@]}))
+    sleep 0.1
   done
-  echo -e "${cor[2]}]${cor[3]} -${cor[5]} 100%${cor[4]}"
+  
+  wait $pid
+  printf "\r${COLOR_YELLOW}%-50s ${COLOR_GREEN}✓${COLOR_RESET}\n" "  $title"
 }
 
 # ══════════════════════════════════════════════════════════
@@ -107,169 +130,87 @@ init_dirs(){
 # ══════════════════════════════════════════════════════════
 
 install_dependencies(){
-  # DEPENDENCIAS DEL SISTEMA (ÚNICAS)
-  local deps="sudo git wget curl python python3"
-  deps="$deps python3-pip build-essential openssl"
-  deps="$deps screen cron iptables apache2 ufw"
-  deps="$deps nano net-tools lsof zip unzip"
-  deps="$deps figlet bc gawk grep at mlocate"
-  deps="$deps locales jq"
+  # ARRAY DE DEPENDENCIAS
+  local deps=(
+    "git" "wget" "curl" "python3" "python3-pip"
+    "build-essential" "openssl" "screen" "cron"
+    "iptables" "apache2" "ufw" "nano" "net-tools"
+    "lsof" "zip" "unzip" "figlet" "bc" "gawk"
+    "grep" "at" "mlocate" "locales" "jq"
+  )
   
-  for pkg in $deps; do
-    leng=${#pkg}
-    puntos=$(( 21 - $leng))
-    pts=""
-    
-    for (( a = 0; a < $puntos; a++ )); do
-      pts+="."
-    done
-    
-    echo -ne "${cor[2]}      instalando"
-    echo -ne " $pkg"
-    echo -ne " ${cor[3]}$pts${cor[4]}"
-    
-    # INSTALAR UNA SOLA VEZ
-    if apt-get install $pkg -y &>/dev/null 2>&1; then
-      echo -e "${cor[5]}INSTALL${cor[4]}"
-    else
-      echo -e "${cor[3]}FAIL${cor[4]}"
-      sleep 2
-      
-      # FALLBACK SOLO PARA PYTHON
-      if [[ $pkg = "python" ]]; then
-        pts=$(echo ${pts:1})
-        echo -ne "${cor[2]}      instalando"
-        echo -ne " python2"
-        echo -ne " ${cor[3]}$pts${cor[4]}"
-        
-        if apt-get install python2 -y &>/dev/null 2>&1; then
-          [[ ! -e /usr/bin/python ]] && \
-            ln -s /usr/bin/python2 /usr/bin/python 2>/dev/null
-          echo -e "${cor[5]}INSTALL${cor[4]}"
-        else
-          echo -e "${cor[3]}FAIL${cor[4]}"
-        fi
-        continue
-      fi
-      
-      # REPARAR Y REINTENTAR
-      dpkg --configure -a &>/dev/null 2>&1
-      sleep 1
-      
-      echo -ne "${cor[2]}      instalando"
-      echo -ne " $pkg"
-      echo -ne " ${cor[3]}$pts${cor[4]}"
-      
-      if apt-get install $pkg -y &>/dev/null 2>&1; then
-        echo -e "${cor[5]}INSTALL${cor[4]}"
-      else
-        echo -e "${cor[3]}FAIL${cor[4]}"
-      fi
-    fi
-  done
+  # Actualizar caché primero
+  animated_progress "Actualizando lista de paquetes" "apt-get update"
+  
+  # Instalar todas las dependencias juntas
+  local deps_string="${deps[@]}"
+  animated_progress "Instalando dependencias del sistema" "apt-get install -y $deps_string"
 }
 
 # ══════════════════════════════════════════════════════════
-# 📥 DESCARGAR MÓDULOS (Scripts/Herramientas)
+# 📥 DESCARGAR MÓDULOS
 # ══════════════════════════════════════════════════════════
 
 download_modules(){
   cd "${ADM_PATH}"
   
-  echo -ne "${cor[2]}["
-  wget -i $HOME/lista -o /dev/null 2>&1 &
-  local pid=$!
-  
-  while kill -0 $pid 2>/dev/null; do
-    for((i=0; i<18; i++)); do
-      echo -ne "${cor[3]}##"
-      sleep 0.1s
-    done
-    echo -e "${cor[2]}]"
-    sleep 1s
-    tput cuu1
-    tput dl1
-    echo -ne "${cor[2]}["
-  done
-  
-  wait $pid
-  echo -e "${cor[2]}]${cor[3]} -${cor[5]} 100%${cor[4]}"
-  
-  chmod +x ./* 2>/dev/null
-}
-
-# ══════════════════════════════════════════════════════════
-# 🔐 EJECUTAR INSTALADOR PERSONALIZADO
-# ══════════════════════════════════════════════════════════
-
-run_installer(){
-  if [[ -f /etc/master-vps/cabecalho ]]; then
-    cd /etc/master-vps && \
-      bash cabecalho --instalar 2>/dev/null
+  if [[ -f $HOME/lista ]]; then
+    animated_progress "Descargando módulos del repositorio" "wget -i $HOME/lista -o /dev/null 2>&1"
+    chmod +x ./* 2>/dev/null
   fi
 }
 
 # ══════════════════════════════════════════════════════════
-# 📋 CONFIGURAR APACHE
+# 🔧 CONFIGURACIONES ADICIONALES
 # ══════════════════════════════════════════════════════════
 
 setup_apache(){
   if [[ -f /etc/apache2/ports.conf ]]; then
-    sed -i "s;Listen 80;Listen 81;g" \
-      /etc/apache2/ports.conf
-    service apache2 restart > /dev/null 2>&1
+    sed -i "s;Listen 80;Listen 81;g" /etc/apache2/ports.conf
+    animated_progress "Configurando Apache en puerto 81" "service apache2 restart"
+  fi
+}
+
+run_installer(){
+  if [[ -f /etc/master-vps/cabecalho ]]; then
+    animated_progress "Ejecutando instalador personalizado" "cd /etc/master-vps && bash cabecalho --instalar"
   fi
 }
 
 # ══════════════════════════════════════════════════════════
-# ❌ ERROR
+# ✅ PANTALLAS DE ÉXITO Y ERROR
 # ══════════════════════════════════════════════════════════
 
 error_fun(){
-  echo -e "${cor[5]}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-  echo -e "\033[1;31mYour apt-get Error!"
-  echo -e "Reboot the System!"
-  echo -e "Use Command:"
-  echo -e "\033[1;36mdpkg --configure -a"
-  echo -e "\033[1;31mVerify your"
-  echo -e "Source.list"
-  echo -e "For Update Source list"
-  echo -e "use this command"
-  echo -e "\033[1;36mwget https://raw."
-  echo -e "githubusercontent.com/"
-  echo -e "SINNOMBRE22/master-vps/"
-  echo -e "master/instale/"
-  echo -e "apt-source.sh"
-  echo -e "${cor[5]}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-  echo -ne "\033[0m"
+  clear
+  print_header "⚠️ ERROR DE INSTALACIÓN"
+  print_message "Error en apt-get" "$COLOR_RED"
+  print_message "" "$COLOR_RESET"
+  print_message "Ejecute los siguientes comandos:" "$COLOR_YELLOW"
+  print_message "dpkg --configure -a" "$COLOR_CYAN"
+  print_message "" "$COLOR_RESET"
+  print_message "Verifique su archivo sources.list" "$COLOR_YELLOW"
+  print_line
+  echo ""
   exit 1
 }
 
-# ══════════════════════════════════════════════════════════
-# ✅ ÉXITO
-# ══════════════════════════════════════════════════════════
-
 success_fun(){
   clear
-  echo -e "${cor[5]}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-  echo -e "                ⇱ PROCEDIMIENTO REALIZADO ⇲"
-  echo -e "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-  echo -e ""
-  echo -e "                ¡BIENVENIDO A VPS MÁSTER!"
-  echo -e ""
-  echo -e "            ✓ INSTALACION COMPLETADA"
-  echo -e "              EXITOSAMENTE"
-  echo -e ""
-  echo -e "              CONFIGURE SU VPS CON EL"
-  echo -e "              COMANDO:"
-  echo -e ""
-  echo -e "              USE LOS COMANDOS:"
-  echo -e "                 • menu"
-  echo -e "                 • vps"
-  echo -e ""
-  echo -e "              2025-10-18 09:12:42 (UTC)"
-  echo -e "${cor[5]}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-  echo -ne "\033[0m"
+  print_header "✅ INSTALACIÓN COMPLETADA"
+  echo ""
+  print_message "¡BIENVENIDO A VPS MÁSTER!" "$COLOR_GREEN"
+  print_message "" "$COLOR_RESET"
+  print_message "✓ Instalación completada exitosamente" "$COLOR_GREEN"
+  print_message "" "$COLOR_RESET"
+  print_message "Comandos disponibles:" "$COLOR_YELLOW"
+  print_message "  • menu" "$COLOR_CYAN"
+  print_message "  • vps" "$COLOR_CYAN"
+  print_message "" "$COLOR_RESET"
+  print_message "Ruta de instalación: $ADM_PATH" "$COLOR_YELLOW"
+  print_message "2025-10-18 09:21:53 (UTC)" "$COLOR_YELLOW"
+  print_line
+  echo ""
 }
 
 # ══════════════════════════════════════════════════════════
@@ -282,42 +223,28 @@ rm $(pwd)/$0 &>/dev/null
 
 cd $HOME
 
-# Preparación
+# Preparación inicial
 locale-gen en_US.UTF-8 > /dev/null 2>&1
 update-locale LANG=en_US.UTF-8 > /dev/null 2>&1
-apt-get install gawk -y > /dev/null 2>&1
 
 clear
 
-# ════════════════════════════════════════════════════════════
-# PANTALLA PRINCIPAL
-# ════════════════════════════════════════════════════════════
-
-echo -e "${cor[1]}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-echo -e "              ⇱ VPS MÁSTER ⇲"
-echo -e "${cor[1]}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-echo -e ""
-echo -e "         Creado por: SINNOMBRE22"
-echo -e ""
-echo -e "${cor[1]}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+# PANTALLA DE BIENVENIDA
+print_header "VPS MÁSTER v2.1"
+print_message "Creado por: SINNOMBRE22" "$COLOR_YELLOW"
+print_line
 sleep 2
 
 clear
 
-# ════════════════════════════════════════════════════════════
 # SELECCIONAR IDIOMA
-# ════════════════════════════════════════════════════════════
-
-echo -e "${cor[1]}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-echo -e "         ⇱ SELECCIONAR IDIOMA ⇲"
-echo -e "${cor[1]}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-echo -e ""
-echo -e "     ${cor[5]}[1] - PT-BR 🇧🇷${cor[4]}"
-echo -e "     ${cor[5]}[2] - EN 🇺🇸${cor[4]}"
-echo -e "     ${cor[5]}[3] - ES 🇪🇸${cor[4]}"
-echo -e "     ${cor[5]}[4] - FR 🇫🇷${cor[4]}"
-echo -e ""
-echo -ne "     ${cor[2]}SELECCIONA TU OPCION: ${cor[4]}"
+print_header "SELECCIONAR IDIOMA"
+print_message "[1] - PT-BR 🇧🇷" "$COLOR_GREEN"
+print_message "[2] - EN 🇺🇸" "$COLOR_GREEN"
+print_message "[3] - ES 🇪🇸" "$COLOR_GREEN"
+print_message "[4] - FR 🇫🇷" "$COLOR_GREEN"
+print_message "" "$COLOR_RESET"
+echo -ne "${COLOR_YELLOW}  Selecciona tu opción [1-4]: ${COLOR_RESET}"
 read lang
 
 case $lang in
@@ -330,20 +257,14 @@ esac
 
 clear
 
-# ════════════════════════════════════════════════════════════
-# INSTALAR
-# ════════════════════════════════════════════════════════════
-
-echo -e "${cor[1]}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-echo -e "       ⇱ INSTALANDO VPS MÁSTER ⇲"
-echo -e "${cor[1]}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-echo -e ""
+# PANEL DE INSTALACIÓN
+print_header "INSTALANDO VPS MÁSTER"
 
 # Descargar lista de módulos
-wget -q -O lista ${REPO_URL}/lista 2>/dev/null
+animated_progress "Descargando lista de módulos" "wget -q -O $HOME/lista ${REPO_URL}/lista"
 
 if [[ $? -ne 0 ]]; then
-  echo -e "${cor[3]}Error al descargar lista${cor[4]}"
+  echo -e "${COLOR_RED}Error al descargar lista${COLOR_RESET}"
   error_fun
 fi
 
@@ -353,31 +274,30 @@ init_dirs
 # Configurar repositorios
 setup_repos
 
-# Actualizar sistema
-echo -e "${cor[2]}Actualizando sistema..."
-fun_bar "apt-get update -y"
-fun_bar "apt-get upgrade -y"
+# PASO 1: Actualizar sistema
+animated_progress "Actualizando repositorios" "apt-get update -y"
+animated_progress "Actualizando paquetes del sistema" "apt-get upgrade -y"
 
-# PASO 1: Instalar DEPENDENCIAS del sistema
-echo -e "\n${cor[5]}Instalando dependencias..."
-echo -e "${cor[3]}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+# PASO 2: Instalar DEPENDENCIAS
+print_message "" "$COLOR_RESET"
 install_dependencies
 
-# PASO 2: Descargar MÓDULOS (scripts/herramientas)
-echo -e "\n${cor[5]}Descargando módulos..."
-echo -e "${cor[3]}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+# PASO 3: Descargar MÓDULOS
+print_message "" "$COLOR_RESET"
 download_modules
 
-# Configurar
+# PASO 4: Configuraciones
 setup_apache
 run_installer
 function_verify
 
-# Limpiar
+# PASO 5: Limpiar
 [[ -e $HOME/lista ]] && rm $HOME/lista
 [[ -e $HOME/fim ]] && rm $HOME/fim
 
 cp -f $0 "${ADM_PATH}/install.sh" 2>/dev/null
 
+# PANTALLA DE ÉXITO
 success_fun
+
 exit 0
