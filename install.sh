@@ -3,7 +3,7 @@
 # ══════════════════════════════════════════════════════════
 # VPS MÁSTER - Sistema Instalación Modular Pro
 # Creado por: SINNOMBRE22
-# Fecha: 2025-10-18 08:35:14 UTC
+# Fecha: 2025-10-18 08:48:02 UTC
 # Versión: 2.0 - ADMRufu Style
 # ══════════════════════════════════════════════════════════
 
@@ -52,6 +52,63 @@ verify_root(){
     echo -e "${cor[3]}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${cor[4]}\n"
     exit 1
   fi
+}
+
+# ══════════════════════════════════════════════════════════
+# 🌍 DETECTAR SISTEMA OPERATIVO
+# ══════════════════════════════════════════════════════════
+
+detect_system(){
+  source /etc/os-release
+  export VERSION_ID
+}
+
+# ══════════════════════════════════════════════════════════
+# 🔄 CONFIGURAR REPOSITORIOS (Como ADMRufu)
+# ══════════════════════════════════════════════════════════
+
+repo_install(){
+  local link="${REPO_URL}/Repositorios"
+  
+  echo -e "${cor[2]}Configurando repositorios${cor[4]}"
+  echo -e "${cor[2]}para versión: $VERSION_ID${cor[4]}"
+  
+  case $VERSION_ID in
+    8*|9*|10*|11*|16.04*|18.04*|20.04*|22.04*)
+      # Crear backup
+      if [[ ! -e /etc/apt/sources.list.back ]]; then
+        cp /etc/apt/sources.list \
+          /etc/apt/sources.list.back
+      fi
+      
+      # Descargar nuevo sources.list
+      if wget -q -O /etc/apt/sources.list \
+        "${link}/${VERSION_ID}.list" 2>/dev/null; then
+        echo -e "${cor[5]}✓ Repositorios"
+        echo -e "configurados${cor[4]}"
+      else
+        echo -e "${cor[3]}⚠ No se descargó"
+        echo -e "sources.list${cor[4]}"
+      fi
+      ;;
+    12*|24.04*)
+      echo -e "${cor[2]}Aplicando fix para"
+      echo -e "Debian12/Ubuntu24${cor[4]}"
+      
+      if command -v ldd &>/dev/null; then
+        local glibc=$(ldd --version | \
+          head -1 | grep -o '[0-9]\+\.[0-9]\+' | \
+          sed 's/\.//g' | head -1)
+        
+        if [[ -n $glibc && $glibc -ge 235 ]]; then
+          wget -q -O /root/fix \
+            "${REPO_URL}/fix" 2>/dev/null
+          [[ -f /root/fix ]] && \
+            chmod 755 /root/fix && /root/fix
+        fi
+      fi
+      ;;
+  esac
 }
 
 # ══════════════════════════════════════════════════════════
@@ -288,6 +345,10 @@ config_apache(){
 
 valid_fun(){
   init_directories
+  
+  # NUEVO: Configurar repositorios primero
+  repo_install
+  
   system_update
   
   echo -e "${cor[5]} $(source trans -b pt:${id} \
@@ -367,7 +428,7 @@ success_screen(){
   echo -e "                 • menu"
   echo -e "                 • vps"
   echo -e ""
-  echo -e "              2025-10-18 08:35:14 (UTC)"
+  echo -e "              2025-10-18 08:48:02 (UTC)"
   echo -e "${cor[5]}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
   echo -ne "\033[0m"
 }
@@ -394,6 +455,9 @@ wget -q -O trans \
   ${REPO_URL}/instale/trans 2>/dev/null
 [[ -e trans ]] && mv -f ./trans /bin/ && \
   chmod 777 /bin/trans
+
+# DETECTAR SO ANTES DE TODO
+detect_system
 
 clear
 
