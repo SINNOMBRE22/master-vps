@@ -3,7 +3,7 @@
 # ══════════════════════════════════════════════════════════
 # VPS MÁSTER - Sistema Instalación Modular Pro
 # Creado por: SINNOMBRE22
-# Fecha: 2025-10-18 08:52:31 UTC
+# Fecha: 2025-10-18 08:56:42 UTC
 # Versión: 2.0 - ADMRufu Style
 # ══════════════════════════════════════════════════════════
 
@@ -260,32 +260,29 @@ download_dependencies(){
 }
 
 # ══════════════════════════════════════════════════════════
-# 📥 DESCARGA DE MÓDULOS
+# 📥 DESCARGAR MÓDULOS DESDE LISTA (Original)
 # ══════════════════════════════════════════════════════════
 
-download_modules(){
-  local modules_list=(
-    "menu"
-    "cabecalho"
-    "bashrc"
-  )
-  
-  for modulo in "${modules_list[@]}"; do
-    local ruta="${ADM_PATH}/${modulo}"
+download_modules_from_lista(){
+  if [[ -e $HOME/lista ]]; then
+    echo -e "${cor[2]}Descargando módulos"
+    echo -e "desde lista...${cor[4]}"
     
-    if wget --timeout=${TIMEOUT} -q -O "$ruta" \
-      "${REPO_URL}/Modulos/${modulo}" 2>/dev/null; then
-      chmod +x "$ruta" 2>/dev/null
+    wget -i $HOME/lista -o /dev/null 2>&1
+    
+    if [[ $? -eq 0 ]]; then
+      echo -e "${cor[5]}✓ Módulos descargados${cor[4]}"
+      return 0
     else
-      echo -e "${cor[3]}Falla al descargar"
-      echo -e "$modulo${cor[4]}"
-      echo -e "${cor[2]}Reportar con el"
-      echo -e "administrador @SINNOMBRE22"
+      echo -e "${cor[3]}✗ Error descargando"
+      echo -e "módulos${cor[4]}"
       return 1
     fi
-  done
-  
-  return 0
+  else
+    echo -e "${cor[3]}✗ No existe archivo"
+    echo -e "lista${cor[4]}"
+    return 1
+  fi
 }
 
 # ══════════════════════════════════════════════════════════
@@ -361,12 +358,14 @@ valid_fun(){
     "DESCARGANDO MÓDULOS")"
   echo -e "${cor[3]}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
   
-  if ! download_modules; then
-    error_fun
-    return 1
+  # ORIGINAL: Descargar desde lista
+  cd /etc/master-vps
+  
+  if ! download_modules_from_lista; then
+    echo -e "${cor[3]}Aviso: No se descargaron"
+    echo -e "módulos desde lista${cor[4]}"
   fi
   
-  cd /etc/master-vps
   chmod +x ./* 2>/dev/null
   
   config_apache
@@ -428,7 +427,7 @@ success_screen(){
   echo -e "                 • menu"
   echo -e "                 • vps"
   echo -e ""
-  echo -e "              2025-10-18 08:52:31 (UTC)"
+  echo -e "              2025-10-18 08:56:42 (UTC)"
   echo -e "${cor[5]}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
   echo -ne "\033[0m"
 }
