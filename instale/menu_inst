@@ -1,0 +1,411 @@
+#!/bin/bash
+
+# ════════════════════════════════════════════════════════════════════
+# VPS MÁSTER - Instalador de Servicios
+# Creado por: SINNOMBRE22
+# Fecha: 2025-10-18 05:27:26 UTC
+# Compatible con: Ubuntu 22.04 LTS
+# ════════════════════════════════════════════════════════════════════
+
+[[ $1 != "" ]] && id="$1" || id="es"
+barra="━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+_cores="./cores"
+_dr="./idioma"
+[[ "$(echo ${txt[0]})" = "" ]] && source idioma_geral
+
+# LISTA PUERTOS
+mportas () {
+unset portas
+portas_var=$(lsof -V -i tcp -P -n | grep -v "ESTABLISHED" |grep -v "COMMAND" | grep "LISTEN")
+while read port; do
+var1=$(echo $port | awk '{print $1}') && var2=$(echo $port | awk '{print $9}' | awk -F ":" '{print $2}')
+[[ "$(echo -e $portas|grep "$var1 $var2")" ]] || portas+="$var1 $var2\n"
+done <<< "$portas_var"
+i=1
+echo -e "$portas"
+}
+
+# MI IP
+fun_ip () {
+MEU_IP=$(ip addr | grep 'inet' | grep -v inet6 | grep -vE '127\.[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}' | grep -o -E '[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}' | head -1)
+MEU_IP2=$(wget -qO- ipv4.icanhazip.com)
+[[ "$MEU_IP" != "$MEU_IP2" ]] && IP="$MEU_IP2" || IP="$MEU_IP"
+}
+
+# ETHOOL SSH
+fun_eth () {
+eth=$(ifconfig | grep -v inet6 | grep -v lo | grep -v 127.0.0.1 | grep "encap:Ethernet" | awk '{print $1}')
+    [[ $eth != "" ]] && {
+    echo -e "$barra"
+    echo -e "${cor[3]} $(source trans -b es:${id} "¿Aplicar Sistema Para Mejorar Paquetes SSH?")"
+    echo -e "${cor[3]} $(source trans -b es:${id} "Opción Para Usuarios Avanzados")"
+    echo -e "$barra"
+    read -p " [S/N]: " -e -i n sshsn
+           [[ "$sshsn" = @(s|S|y|Y) ]] && {
+           echo -e "${cor[1]} $(source trans -b es:${id} "Corrección de problemas de paquetes en SSH...")"
+           echo -e " $(source trans -b es:${id} "¿Cuál es la Tasa RX?")"
+           echo -ne "[ 1 - 999999999 ]: "; read rx
+           [[ "$rx" = "" ]] && rx="999999999"
+           echo -e " $(source trans -b es:${id} "¿Cuál es la Tasa TX?")"
+           echo -ne "[ 1 - 999999999 ]: "; read tx
+           [[ "$tx" = "" ]] && tx="999999999"
+           apt-get install ethtool -y > /dev/null 2>&1
+           ethtool -G $eth rx $rx tx $tx > /dev/null 2>&1
+           }
+     echo -e "$barra"
+     }
+}
+
+# BARRA DE PROGRESO
+fun_bar () {
+comando[0]="$1"
+comando[1]="$2"
+ (
+[[ -e $HOME/fim ]] && rm $HOME/fim
+${comando[0]} -y > /dev/null 2>&1
+${comando[1]} -y > /dev/null 2>&1
+touch $HOME/fim
+ ) > /dev/null 2>&1 &
+echo -ne "\033[1;33m ["
+while true; do
+   for((i=0; i<18; i++)); do
+   echo -ne "\033[1;31m##"
+   sleep 0.1s
+   done
+   [[ -e $HOME/fim ]] && rm $HOME/fim && break
+   echo -e "\033[1;33m]"
+   sleep 1s
+   tput cuu1
+   tput dl1
+   echo -ne "\033[1;33m ["
+done
+echo -e "\033[1;33m]\033[1;31m -\033[1;32m 100%\033[1;37m"
+}
+
+# INSTALADOR SQUID
+fun_squid  () {
+  if [[ -e /etc/squid/squid.conf ]]; then
+  var_squid="/etc/squid/squid.conf"
+  elif [[ -e /etc/squid3/squid.conf ]]; then
+  var_squid="/etc/squid3/squid.conf"
+  fi
+  # Reiniciando
+  service squid3 restart > /dev/null 2>&1
+  service squid restart > /dev/null 2>&1
+  [[ -e $var_squid ]] && {
+  echo -e "$barra\n\033[1;32m $(source trans -b es:${id} "REMOVIENDO SQUID")\n$barra"
+  fun_bar "apt-get remove squid3 -y"
+  service squid stop > /dev/null 2>&1
+  service squid3 stop > /dev/null 2>&1
+  echo -e "$barra\n\033[1;32m $(source trans -b es:${id} "Procedimiento Completado")\n$barra"
+  [[ -e $var_squid ]] && rm $var_squid
+  return 0
+  }
+# Instalar
+echo -e "$barra\n\033[1;32m $(source trans -b es:${id} "INSTALADOR SQUID")\n$barra"
+fun_ip
+echo -ne " $(source trans -b es:${id} "Confirme su IP")"; read -p ": " -e -i $IP ip
+echo -e "$barra\n $(source trans -b es:${id} "Ahora Elija los Puertos que Desea en Squid")"
+echo -e " $(source trans -b es:${id} "Elija Los Puertos, Ejemplo: 80 8080 3128")"
+echo -ne " $(source trans -b es:${id} "Escriba los Puertos:"): "; read portasx
+echo -e "$barra"
+totalporta=($portasx)
+unset PORT
+   for((i=0; i<${#totalporta[@]}; i++)); do
+        [[ $(mportas|grep "${totalporta[$i]}") = "" ]] && {
+        echo -e "\033[1;33m $(source trans -b es:${id} "Puerto Elegido:")\033[1;32m ${totalporta[$i]} OK"
+        PORT+="${totalporta[$i]}\n"
+        } || {
+        echo -e "\033[1;33m $(source trans -b es:${id} "Puerto Elegido:")\033[1;31m ${totalporta[$i]} FALLO"
+        }
+   done
+  [[ "$(echo -e $PORT)" = "" ]] && {
+  echo -e "\033[1;31m $(source trans -b es:${id} "Ningún Puerto Válido Fue Elegido")\033[0m"
+  return 1
+  }
+echo -e "$barra"
+echo -e " $(source trans -b es:${id} "INSTALANDO SQUID")"
+echo -e "$barra"
+fun_bar "apt-get install squid3 -y"
+echo -e "$barra"
+echo -e " $(source trans -b es:${id} "INICIANDO CONFIGURACIÓN")"
+echo -e "$barra"
+echo -e "" > /etc/payloads
+# Añadir Host Squid
+payload="/etc/payloads"
+echo -e "" > /etc/payloads
+echo -e " ${txt[219]}"
+echo -e " ${txt[220]}" 
+read -p " $(source trans -b es:${id} "Agregar Host"): " hos
+if [[ $hos != \.* ]]; then
+echo -e "$barra"
+echo -e "\033[1;31m $(source trans -b es:${id} " [!] Host-Squid debe iniciar con ".")\033[0m"
+echo -e "\033[1;31m $(source trans -b es:${id} " ¡Asegúrese de agregarlo después correctamente!")\033[0m"
+fi
+host="$hos/"
+if [[ -z $host ]]; then
+echo -e "$barra"
+echo -e "\033[1;31m $(source trans -b es:${id} " [!] Host-Squid no agregado")"
+echo -e "\033[1;31m $(source trans -b es:${id} " ¡Asegúrese de agregarlo después!")\033[0m"
+fi
+echo "$host" >> $payload && grep -v "^$" $payload > /tmp/a && mv /tmp/a $payload
+echo -e "$barra\n\033[1;32m $(source trans -b es:${id} "Ahora Elija Una Configuración Para Su Proxy")\n$barra"
+echo -e " |1| $(source trans -b es:${id} "Común")"
+echo -e " |2| $(source trans -b es:${id} "Personalizado") -\033[1;31m $(source trans -b es:${id} "El usuario debe ajustar")\033[1;37m\n$barra"
+read -p " [1/2]: " -e -i 1 proxy_opt
+unset var_squid
+if [[ -d /etc/squid ]]; then
+var_squid="/etc/squid/squid.conf"
+elif [[ -d /etc/squid3 ]]; then
+var_squid="/etc/squid3/squid.conf"
+fi
+if [[ "$proxy_opt" = @(02|2) ]]; then
+echo -e "#ConfiguraciónSquid
+acl url1 dstdomain -i $ip
+acl url2 dstdomain -i 127.0.0.1
+acl url3 url_regex -i '/etc/payloads'
+acl url4 dstdomain -i localhost
+acl accept dstdomain -i GET
+acl accept dstdomain -i POST
+acl accept dstdomain -i OPTIONS
+acl accept dstdomain -i CONNECT
+acl accept dstdomain -i PUT
+acl HEAD dstdomain -i HEAD
+acl accept dstdomain -i TRACE
+acl accept dstdomain -i OPTIONS
+acl accept dstdomain -i PATCH
+acl accept dstdomain -i PROPATCH
+acl accept dstdomain -i DELETE
+acl accept dstdomain -i REQUEST
+acl accept dstdomain -i METHOD
+acl accept dstdomain -i NETDATA
+acl accept dstdomain -i MOVE
+acl all src 0.0.0.0/0
+http_access allow url1
+http_access allow url2
+http_access allow url3
+http_access allow url4
+http_access allow accept
+http_access allow HEAD
+http_access deny all
+
+# Forzar Encabezados de Solicitud
+
+request_header_access Allow allow all
+request_header_access Authorization allow all
+request_header_access WWW-Authenticate allow all
+request_header_access Proxy-Authorization allow all
+request_header_access Proxy-Authenticate allow all
+request_header_access Cache-Control allow all
+request_header_access Content-Encoding allow all
+request_header_access Content-Length allow all
+request_header_access Content-Type allow all
+request_header_access Date allow all
+request_header_access Expires allow all
+request_header_access Host allow all
+request_header_access If-Modified-Since allow all
+request_header_access Last-Modified allow all
+request_header_access Location allow all
+request_header_access Pragma allow all
+request_header_access Accept allow all
+request_header_access Accept-Charset allow all
+request_header_access Accept-Encoding allow all
+request_header_access Accept-Language allow all
+request_header_access Content-Language allow all
+request_header_access Mime-Version allow all
+request_header_access Retry-After allow all
+request_header_access Title allow all
+request_header_access Connection allow all
+request_header_access Proxy-Connection allow all
+request_header_access User-Agent allow all
+request_header_access Cookie allow all
+request_header_access All deny all
+
+# Suplantación de Encabezados de Respuesta
+
+reply_header_access Via deny all
+reply_header_access X-Cache deny all
+reply_header_access X-Cache-Lookup deny all
+
+
+# Puertos" > $var_squid
+for pts in $(echo -e $PORT); do
+echo -e "http_port $pts" >> $var_squid
+done
+echo -e "
+# Nombre
+visible_hostname VPS-MASTER
+
+via off
+forwarded_for off
+pipeline_prefetch off" >> $var_squid
+ else
+echo -e "#ConfiguraciónSquid
+acl url1 dstdomain -i $ip
+acl url2 dstdomain -i 127.0.0.1
+acl url3 url_regex -i '/etc/payloads'
+acl url4 dstdomain -i localhost
+acl all src 0.0.0.0/0
+http_access allow url1
+http_access allow url2
+http_access allow url3
+http_access allow url4
+http_access deny all
+
+# Puertos" > $var_squid
+for pts in $(echo -e $PORT); do
+echo -e "http_port $pts" >> $var_squid
+done
+echo -e "
+# Nombre
+visible_hostname VPS-MASTER
+
+via off
+forwarded_for off
+pipeline_prefetch off" >> $var_squid
+fi
+fun_eth
+echo -e "$barra\n \033[1;31m [ ! ] \033[1;33m$(source trans -b es:${id} "REINICIANDO SERVICIOS")"
+squid3 -k reconfigure > /dev/null 2>&1
+squid -k reconfigure > /dev/null 2>&1
+service ssh restart > /dev/null 2>&1
+service squid3 restart > /dev/null 2>&1
+service squid restart > /dev/null 2>&1
+echo -e " \033[1;32m[OK]"
+echo -e "$barra\n ${cor[3]}$(source trans -b es:${id} "SQUID CONFIGURADO")\n$barra"
+mportas > /tmp/portz
+while read portas; do
+[[ $portas = "" ]] && break
+done < /tmp/portz
+# UFW
+for ufww in $(mportas|awk '{print $2}'); do
+ufw allow $ufww > /dev/null 2>&1
+done
+}
+
+# FUNCIONES
+funcao_addcores () {
+if [ "$1" = "0" ]; then
+cor[$2]="\033[0m"
+elif [ "$1" = "1" ]; then
+cor[$2]="\033[1;31m"
+elif [ "$1" = "2" ]; then
+cor[$2]="\033[1;32m"
+elif [ "$1" = "3" ]; then
+cor[$2]="\033[1;33m"
+elif [ "$1" = "4" ]; then
+cor[$2]="\033[1;34m"
+elif [ "$1" = "5" ]; then
+cor[$2]="\033[1;35m"
+elif [ "$1" = "6" ]; then
+cor[$2]="\033[1;36m"
+elif [ "$1" = "7" ]; then
+cor[$2]="\033[1;37m"
+fi
+}
+
+[[ -e $_cores ]] && {
+_cont="0"
+while read _cor; do
+funcao_addcores ${_cor} ${_cont}
+_cont=$(($_cont + 1))
+done < $_cores
+} || {
+cor[0]="\033[0m"
+cor[1]="\033[1;34m"
+cor[2]="\033[1;32m"
+cor[3]="\033[1;37m"
+cor[4]="\033[1;36m"
+cor[5]="\033[1;33m"
+cor[6]="\033[1;35m"
+}
+
+unset squid
+unset dropbear
+unset openvpn
+unset stunel
+unset shadow
+unset telegran
+unset socks
+unset gettun
+unset tcpbypass
+unset webminn
+unset ddos
+
+[[ -e /etc/squid/squid.conf ]] && squid="\033[1;32m$(source trans -b es:${id} "En línea")"
+[[ -e /etc/squid3/squid.conf ]] && squid="\033[1;32m$(source trans -b es:${id} "En línea")"
+[[ -e /etc/default/dropbear ]] && dropbear="\033[1;32m$(source trans -b es:${id} "En línea")"
+[[ -e /etc/openvpn/server.conf ]] && openvpn="\033[1;32m$(source trans -b es:${id} "Configurado")"
+[[ $(mportas|grep stunnel4|head -1) ]] && stunel="\033[1;32m$(source trans -b es:${id} "En línea")"
+[[ -e /etc/shadowsocks.json ]] && shadow="\033[1;32m$(source trans -b es:${id} "En línea")"
+[[ "$(ps x | grep "ultimatebot" | grep -v "grep")" != "" ]] && telegran="\033[1;32m$(source trans -b es:${id} "En línea")"
+[[ -e /etc/master-vps/sockson ]] && socks="\033[1;32m$(source trans -b es:${id} "En línea")"
+[[ -e /etc/master-vps/gettun ]] && gettun="\033[1;32m$(source trans -b es:${id} "En línea")"
+[[ -e /etc/master-vps/edbypass ]] && tcpbypass="\033[1;32m$(source trans -b es:${id} "En línea")"
+[[ -e /etc/webmin/miniserv.conf ]] && webminn="\033[1;32m$(source trans -b es:${id} "En línea")"
+[[ -e /usr/local/ddos/ddos.conf ]] && ddos="\033[1;32m$(source trans -b es:${id} "En línea")"
+
+echo -e "$barra"
+echo -e "${cor[5]} ${txt[335]}"
+echo -e "$barra"
+echo -e "${cor[2]} [1] > ${cor[3]}SQUID $squid"
+echo -e "${cor[2]} [2] > ${cor[3]}DROPBEAR $dropbear"
+echo -e "${cor[2]} [3] > ${cor[3]}OPENVPN $openvpn"
+echo -e "${cor[2]} [4] > ${cor[3]}SSL TUNNEL $stunel"
+echo -e "${cor[2]} [5] > ${cor[3]}SHADOW SOCKS $shadow"
+echo -e "${cor[2]} [6] > ${cor[3]}PROXY SOCKS $socks"
+echo -e "${cor[2]} [7] > ${cor[3]}PROXY GETTUNEL $gettun"
+echo -e "${cor[2]} [8] > ${cor[3]}TCP OVER BYPASS $tcpbypass"
+echo -e "${cor[2]} [9] > ${cor[3]}TELEGRAN MANAGER BOT $telegran"
+echo -e "${cor[2]} [10] > ${cor[3]}WEBMIN $webminn"
+echo -e "${cor[2]} [11] > ${cor[3]}Anti-DDOS $ddos"
+echo -e "${cor[2]} [12] > ${cor[3]}V2RAY"
+echo -e "${cor[2]} [13] > ${cor[3]}ZIVPN"
+echo -e "$barra"
+echo -ne "\033[1;37m ${txt[338]}: "
+read optons
+
+case $optons in
+1)
+fun_squid
+read -p " Enter";;
+2)
+echo -e "$barra\n\033[1;32m $(source trans -b es:${id} "INSTALADOR DROPBEAR")\n$barra"
+read -p " Enter";;
+3)
+echo -e "$barra\n\033[1;32m $(source trans -b es:${id} "INSTALADOR OPENVPN")\n$barra"
+read -p " Enter";;
+4)
+echo -e "$barra\n\033[1;32m $(source trans -b es:${id} "INSTALADOR SSL TUNNEL")\n$barra"
+read -p " Enter";;
+5)
+echo -e "$barra\n\033[1;32m $(source trans -b es:${id} "INSTALADOR SHADOW SOCKS")\n$barra"
+read -p " Enter";;
+6)
+echo -e "$barra\n\033[1;32m $(source trans -b es:${id} "INSTALADOR SOCKS PYTHON")\n$barra"
+read -p " Enter";;
+7)
+echo -e "$barra\n\033[1;32m $(source trans -b es:${id} "INSTALADOR GETTUNEL")\n$barra"
+read -p " Enter";;
+8)
+echo -e "$barra\n\033[1;32m $(source trans -b es:${id} "INSTALADOR TCP BYPASS")\n$barra"
+read -p " Enter";;
+9)
+echo -e "$barra\n\033[1;32m $(source trans -b es:${id} "INSTALADOR BOT TELEGRAM")\n$barra"
+read -p " Enter";;
+10)
+echo -e "$barra\n\033[1;32m $(source trans -b es:${id} "INSTALADOR WEBMIN")\n$barra"
+read -p " Enter";;
+11)
+echo -e "$barra\n\033[1;32m $(source trans -b es:${id} "INSTALADOR ANTI-DDOS")\n$barra"
+read -p " Enter";;
+12)
+echo -e "$barra\n\033[1;32m $(source trans -b es:${id} "INSTALADOR V2RAY")\n$barra"
+read -p " Enter";;
+13)
+echo -e "$barra\n\033[1;32m $(source trans -b es:${id} "INSTALADOR ZIVPN")\n$barra"
+read -p " Enter";;
+esac
+
+# Reinicia Menú
+menu
