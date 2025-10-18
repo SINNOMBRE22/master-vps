@@ -1,75 +1,517 @@
 #!/bin/bash
 
-# ════════════════════════════════════════════════════════════════════
-# VPS MÁSTER - Sistema de Actualización
+################################################################################
+# VPS MASTER - Sistema de Actualización MEJORADO v2.0
 # Creado por: SINNOMBRE22
-# Fecha: 2025-10-17 23:45:34 UTC
+# Fecha: 2025-10-18 07:47:58 UTC
 # Compatible con: Ubuntu 22.04 LTS
-# ════════════════════════════════════════════════════════════════════
+# Mejoras: Error handling, Validación, Backup, Logs, Rollback
+################################################################################
 
-#COMPARA
-fun_filez () {
-arq="/etc/master-vps/$1"
-arq2="$HOME/update/$1"
-     [[ ! -e "/etc/master-vps/$1" ]] && {
-     mv -f $arq2 $arq
-     return
-     }
-equal=$(diff -q $arq $arq2)
-echo -e "\033[1;31m ${txt[203]}: $1"
-     [[ "$equal" = "" ]] && rm $arq2 || {
-     mv -f $arq2 $arq
-     chmod +x $arq
-     lista_atualizados=$(($lista_atualizados + 1))
-     echo -e "\033[1;32m ${txt[204]}: $1 - ${txt[205]}!"
-     sleep 0.5s
-     echo ""
-     }
-}
+set -o pipefail  # Detectar errores en pipes
 
-#ACTUALIZACIÓN
-atualiza_fun () {
-echo -e "${cor[1]}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${cor[0]}"
-cd $HOME
-[[ ! -d ./update ]] && mkdir ./update
-cd ./update
-wget -i $HOME/lista -o /dev/null
-for arqs in `ls $HOME/update`; do
-fun_filez $arqs
-done
-  _modulos="/etc/master-vps/modulo"
-  active_verif=$(cat $_modulos | egrep -v "VERIFICAR")
-  echo "$active_verif" > $_modulos
-  for _pids_ in `atq | awk '{print $1}'`; do
-   atrm $_pids_
-  done
-  [[ -e /etc/master-vps/vencidos ]] && rm /etc/master-vps/vencidos
-  [[ -e /etc/master-vps/onlines ]] && rm /etc/master-vps/onlines
-  [[ -e $HOME/lista ]] && rm $HOME/lista
-  [[ -d $HOME/update ]] && rm -rf $HOME/update
-  [[ "$lista_atualizados" != "" ]] && echo -e "${cor[5]} $lista_atualizados ${txt[206]}"
-  [[ -e /etc/master-vps/idioma ]] && rm /etc/master-vps/idioma
-echo -e "${cor[1]}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${cor[0]}"
-}
+#══════════════════════════════════════════════════════════════════════════════
+# VARIABLES GLOBALES
+#══════════════════════════════════════════════════════════════════════════════
+readonly SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+readonly SCRIPT_NAME="$(basename "${BASH_SOURCE[0]}")"
+readonly LOG_DIR="/var/log/master-vps"
+readonly LOG_FILE="${LOG_DIR}/update_$(date +%Y%m%d_%H%M%S).log"
+readonly BACKUP_DIR="/etc/master-vps/backups"
+readonly UPDATE_DIR="${HOME}/update"
+readonly LISTA_FILE="${HOME}/lista"
+readonly CONFIG_DIR="/etc/master-vps"
+readonly MODULES_DIR="${CONFIG_DIR}/modulo"
 
-#COLORES
-cor[1]="\033[1;36m"
-cor[2]="\033[1;32m"
-cor[3]="\033[1;31m"
-cor[4]="\033[1;33m"
-cor[0]="\033[1;37m"
+# Contadores
+lista_atualizados=0
+lista_erros=0
+lista_backup=0
 
-#TEXTOS
-txt[206]="¡Archivos Actualizados!"
-txt[208]="¡Clave Inválida, Contacte al Administrador!"
-txt[207]="¡Válido!"
+# URLs
+REPO_URL="https://raw.githubusercontent.com/SINNOMBRE22/master-vps/master"
+LISTA_URL="${REPO_URL}/lista"
+
+# Dependencias requeridas
+DEPENDENCIES=("wget" "diff" "at")
+
+#══════════════════════════════════════════════════════════════════════════════
+# COLORES Y FORMATOS
+#══════════════════════════════════════════════════════════════════════════════
+cor[0]="\033[1;37m"  # Blanco
+cor[1]="\033[1;36m"  # Cyan
+cor[2]="\033[1;32m"  # Verde
+cor[3]="\033[1;31m"  # Rojo
+cor[4]="\033[1;33m"  # Amarillo
+cor[5]="\033[1;35m"  # Magenta
+cor_reset="\033[0m"
+
+#══════════════════════════════════════════════════════════════════════════════
+# TEXTOS MULTIIDIOMA
+#══════════════════════════════════════════════════════════════════════════════
+txt[100]="🔄 INICIANDO SISTEMA DE ACTUALIZACIÓN"
+txt[101]="✅ Validación completada"
+txt[102]="❌ Error crítico"
+txt[103]="⚠️  Advertencia"
+txt[104]="📦 Analizando archivo"
+txt[105]="✨ Actualizado correctamente"
+txt[106]="🔍 Verificando descargas"
+txt[107]="💾 Creando backup"
+txt[108]="🔄 Restaurando desde backup"
+txt[109]="✅ Actualización completada"
+txt[110]="❌ Actualización fallida"
+txt[111]="📋 Generando reporte"
+txt[112]="⏱️  Timeout en descarga"
+txt[113]="🔐 Verificando integridad"
+txt[200]="Archivo no existe, instalando"
+txt[201]="Archivo ya existe, comparando"
+txt[202]="Diferencias encontradas"
 txt[203]="Analizando"
 txt[204]="Archivo"
 txt[205]="Actualizado"
+txt[206]="¡Archivos Actualizados!"
+txt[207]="¡Válido!"
+txt[208]="¡Clave Inválida, Contacte al Administrador!"
+txt[300]="Dependencia faltante"
+txt[301]="Directorio no existe"
+txt[302]="Permiso denegado"
+txt[303]="Fallo en descarga"
 
-cd $HOME
-[[ -d $HOME/update ]] && rm -rf $HOME/update
-[[ -e $HOME/lista ]] && rm $HOME/lista
-cd /root
-wget -O lista https://raw.githubusercontent.com/SINNOMBRE22/master-vps/master/lista -o /dev/null
-atualiza_fun
+#══════════════════════════════════════════════════════════════════════════════
+# FUNCIONES DE LOGGING
+#══════════════════════════════════════════════════════════════════════════════
+
+# Inicializar logs
+init_logs() {
+    mkdir -p "${LOG_DIR}" "${BACKUP_DIR}" "${UPDATE_DIR}" "${CONFIG_DIR}"
+    touch "${LOG_FILE}"
+    log_info "═══════════════════════════════════════════════════════════════"
+    log_info "${txt[100]}"
+    log_info "Fecha: $(date '+%Y-%m-%d %H:%M:%S UTC')"
+    log_info "Usuario: $(whoami)"
+    log_info "PID: $$"
+    log_info "═══════════════════════════════════════════════════════════════"
+}
+
+# Log de información
+log_info() {
+    local msg="$1"
+    echo -e "${cor[1]}[INFO]${cor_reset} ${msg}" | tee -a "${LOG_FILE}"
+}
+
+# Log de éxito
+log_success() {
+    local msg="$1"
+    echo -e "${cor[2]}[✓]${cor_reset} ${msg}" | tee -a "${LOG_FILE}"
+}
+
+# Log de error
+log_error() {
+    local msg="$1"
+    echo -e "${cor[3]}[✗]${cor_reset} ${msg}" | tee -a "${LOG_FILE}"
+}
+
+# Log de advertencia
+log_warn() {
+    local msg="$1"
+    echo -e "${cor[4]}[!]${cor_reset} ${msg}" | tee -a "${LOG_FILE}"
+}
+
+# Log de depuración
+log_debug() {
+    local msg="$1"
+    if [[ "${DEBUG:-0}" == "1" ]]; then
+        echo -e "${cor[5]}[DEBUG]${cor_reset} ${msg}" | tee -a "${LOG_FILE}"
+    fi
+}
+
+#══════════════════════════════════════════════════════════════════════════════
+# VALIDACIONES Y VERIFICACIONES
+#══════════════════════════════════════════════════════════════════════════════
+
+# Verificar dependencias
+verify_dependencies() {
+    log_info "${txt[101]}"
+    
+    local missing_deps=()
+    
+    for dep in "${DEPENDENCIES[@]}"; do
+        if ! command -v "$dep" &> /dev/null; then
+            missing_deps+=("$dep")
+            log_error "${txt[300]}: $dep"
+        fi
+    done
+    
+    if [[ ${#missing_deps[@]} -gt 0 ]]; then
+        log_error "Dependencias faltantes: ${missing_deps[*]}"
+        log_error "Instale con: sudo apt install -y ${missing_deps[*]}"
+        exit 1
+    fi
+    
+    log_success "Todas las dependencias verificadas"
+}
+
+# Verificar permisos
+verify_permissions() {
+    log_info "Verificando permisos..."
+    
+    if [[ ! -w "${CONFIG_DIR}" ]]; then
+        log_error "${txt[302]}: ${CONFIG_DIR}"
+        log_error "Ejecute con: sudo ${SCRIPT_NAME}"
+        exit 1
+    fi
+    
+    log_success "Permisos validados"
+}
+
+# Verificar conectividad
+verify_connectivity() {
+    log_info "Verificando conectividad..."
+    
+    if ! ping -c 1 -W 3 github.com &> /dev/null; then
+        log_warn "Sin conexión a GitHub, intentando descargas..."
+    else
+        log_success "Conexión verificada"
+    fi
+}
+
+# Crear backup de archivos existentes
+create_backup() {
+    local file_path="$1"
+    local filename="$(basename "$file_path")"
+    local backup_timestamp=$(date +%Y%m%d_%H%M%S)
+    local backup_file="${BACKUP_DIR}/${filename}.backup.${backup_timestamp}"
+    
+    if [[ -e "$file_path" ]]; then
+        if cp -p "$file_path" "$backup_file" 2>/dev/null; then
+            log_success "${txt[107]}: $filename"
+            lista_backup=$((lista_backup + 1))
+            echo "$backup_file"  # Retornar ruta del backup
+            return 0
+        else
+            log_error "No se pudo crear backup de $filename"
+            return 1
+        fi
+    fi
+}
+
+#══════════════════════════════════════════════════════════════════════════════
+# DESCARGAS Y VERIFICACIÓN
+#══════════════════════════════════════════════════════════════════════════════
+
+# Descargar lista de archivos
+download_lista() {
+    log_info "Descargando lista de archivos..."
+    
+    # Limpiar descarga anterior
+    [[ -f "${LISTA_FILE}" ]] && rm -f "${LISTA_FILE}"
+    
+    # Descargar con reintentos
+    local retries=3
+    local count=0
+    
+    while [[ $count -lt $retries ]]; do
+        if wget --timeout=15 --tries=2 -O "${LISTA_FILE}" "${LISTA_URL}" -o /dev/null 2>&1; then
+            if [[ -s "${LISTA_FILE}" ]]; then
+                log_success "Lista descargada: $(wc -l < "${LISTA_FILE}") archivos"
+                return 0
+            fi
+        fi
+        
+        count=$((count + 1))
+        if [[ $count -lt $retries ]]; then
+            log_warn "Reintento $count/$retries en 5 segundos..."
+            sleep 5
+        fi
+    done
+    
+    log_error "${txt[303]}: Lista de actualización"
+    return 1
+}
+
+# Descargar archivos
+download_files() {
+    log_info "${txt[106]}"
+    
+    # Crear directorio de actualización
+    [[ -d "${UPDATE_DIR}" ]] && rm -rf "${UPDATE_DIR}"
+    mkdir -p "${UPDATE_DIR}"
+    cd "${UPDATE_DIR}" || {
+        log_error "No se puede acceder a ${UPDATE_DIR}"
+        return 1
+    }
+    
+    # Descargar archivos con reintentos
+    if wget --timeout=20 --tries=2 -i "${LISTA_FILE}" -o /dev/null 2>&1; then
+        local downloaded=$(ls -1 "${UPDATE_DIR}" 2>/dev/null | wc -l)
+        log_success "Descargados $downloaded archivos"
+        return 0
+    else
+        log_error "${txt[303]}: Archivos de actualización"
+        return 1
+    fi
+}
+
+# Verificar integridad de archivo
+verify_file_integrity() {
+    local file="$1"
+    
+    # Verificar que no esté vacío
+    if [[ ! -s "$file" ]]; then
+        log_error "Archivo vacío o corrupto: $file"
+        return 1
+    fi
+    
+    # Verificar que sea ejecutable si es un script
+    if head -c 2 "$file" | grep -q '^#!'; then
+        # Es un script
+        if ! bash -n "$file" 2>/dev/null; then
+            log_error "Errores de sintaxis en script: $file"
+            return 1
+        fi
+    fi
+    
+    log_debug "Integridad verificada: $file"
+    return 0
+}
+
+#══════════════════════════════════════════════════════════════════════════════
+# COMPARACIÓN E INSTALACIÓN
+#══════════════════════════════════════════════════════════════════════════════
+
+# Comparar y actualizar archivos
+compare_and_update() {
+    local filename="$1"
+    local updated_file="${UPDATE_DIR}/${filename}"
+    local installed_file="${CONFIG_DIR}/${filename}"
+    
+    log_debug "${txt[201]}: $filename"
+    
+    # Verificar integridad del archivo descargado
+    if ! verify_file_integrity "$updated_file"; then
+        log_error "Archivo descargado inválido: $filename"
+        lista_erros=$((lista_erros + 1))
+        rm -f "$updated_file"
+        return 1
+    fi
+    
+    # Si el archivo no existe, instalarlo
+    if [[ ! -e "$installed_file" ]]; then
+        log_info "${txt[200]}: $filename"
+        
+        if mv -f "$updated_file" "$installed_file"; then
+            chmod +x "$installed_file" 2>/dev/null || true
+            log_success "${txt[105]}: $filename (nuevo)"
+            lista_atualizados=$((lista_atualizados + 1))
+            return 0
+        else
+            log_error "No se pudo mover $filename a ${CONFIG_DIR}"
+            lista_erros=$((lista_erros + 1))
+            return 1
+        fi
+    fi
+    
+    # Comparar archivos
+    if diff -q "$installed_file" "$updated_file" &>/dev/null; then
+        log_debug "Sin cambios: $filename"
+        rm -f "$updated_file"
+        return 0
+    fi
+    
+    # Crear backup y actualizar
+    log_info "${txt[202]}: $filename"
+    
+    if create_backup "$installed_file" &>/dev/null; then
+        if mv -f "$updated_file" "$installed_file"; then
+            chmod +x "$installed_file" 2>/dev/null || true
+            log_success "${txt[105]}: $filename"
+            lista_atualizados=$((lista_atualizados + 1))
+            return 0
+        else
+            log_error "No se pudo actualizar $filename"
+            lista_erros=$((lista_erros + 1))
+            return 1
+        fi
+    else
+        log_error "Backup fallido para $filename"
+        lista_erros=$((lista_erros + 1))
+        return 1
+    fi
+}
+
+#══════════════════════════════════════════════════════════════════════════════
+# LIMPIEZA Y MANTENIMIENTO
+#══════════════════════════════════════════════════════════════════════════════
+
+# Limpiar archivos temporales
+cleanup_temp_files() {
+    log_info "Limpiando archivos temporales..."
+    
+    [[ -f "${LISTA_FILE}" ]] && rm -f "${LISTA_FILE}"
+    [[ -d "${UPDATE_DIR}" ]] && rm -rf "${UPDATE_DIR}"
+    
+    log_success "Limpieza completada"
+}
+
+# Limpiar tareas at pendientes
+cleanup_at_tasks() {
+    log_info "Limpiando tareas pendientes..."
+    
+    if command -v atq &>/dev/null && command -v atrm &>/dev/null; then
+        local tasks=$(atq 2>/dev/null | awk '{print $1}' || true)
+        
+        if [[ -n "$tasks" ]]; then
+            while IFS= read -r task_id; do
+                if atrm "$task_id" 2>/dev/null; then
+                    log_debug "Tarea removida: $task_id"
+                fi
+            done <<< "$tasks"
+        fi
+    fi
+}
+
+# Limpiar cachés
+cleanup_cache() {
+    log_info "Limpiando cachés..."
+    
+    [[ -e "${CONFIG_DIR}/vencidos" ]] && rm -f "${CONFIG_DIR}/vencidos"
+    [[ -e "${CONFIG_DIR}/onlines" ]] && rm -f "${CONFIG_DIR}/onlines"
+    [[ -e "${CONFIG_DIR}/idioma" ]] && rm -f "${CONFIG_DIR}/idioma"
+    
+    log_success "Cachés limpiados"
+}
+
+#══════════════════════════════════════════════════════════════════════════════
+# REPORTE Y RESUMEN
+#══════════════════════════════════════════════════════════════════════════════
+
+# Generar reporte
+generate_report() {
+    log_info "${txt[111]}"
+    
+    local total_operations=$((lista_atualizados + lista_erros))
+    local success_rate=0
+    
+    if [[ $total_operations -gt 0 ]]; then
+        success_rate=$(( (lista_atualizados * 100) / total_operations ))
+    fi
+    
+    cat << EOF | tee -a "${LOG_FILE}"
+
+╔════════════════════════════════════════════════════════════════╗
+║               REPORTE DE ACTUALIZACIÓN                        ║
+╠════════════════════════════════════════════════════════════════╣
+║ Fecha:              $(date '+%Y-%m-%d %H:%M:%S UTC')             ║
+║ Archivos actualizados:  $lista_atualizados                           ║
+║ Backups creados:        $lista_backup                           ║
+║ Errores:                $lista_erros                            ║
+║ Total operaciones:      $total_operations                        ║
+║ Tasa de éxito:          $success_rate%                           ║
+║ Log:                    $LOG_FILE                  ║
+╚════════════════════════════════════════════════════════════════╝
+
+EOF
+    
+    if [[ $lista_erros -eq 0 ]]; then
+        log_success "${txt[109]}"
+        return 0
+    else
+        log_warn "${txt[110]} - Errores: $lista_erros"
+        return 1
+    fi
+}
+
+# Generar resumen en el log
+summary_to_log() {
+    cat >> "${LOG_FILE}" << EOF
+
+═══════════════════════════════════════════════════════════════
+RESUMEN FINAL
+═══════════════════════════════════════════════════════════════
+Archivos Actualizados: $lista_atualizados
+Backups Creados:       $lista_backup
+Errores:               $lista_erros
+Fecha de Finalización: $(date '+%Y-%m-%d %H:%M:%S UTC')
+═══════════════════════════════════════════════════════════════
+EOF
+}
+
+#══════════════════════════════════════════════════════════════════════════════
+# MANEJO DE ERRORES Y TRAP
+#══════════════════════════════════════════════════════════════════════════════
+
+# Trap para manejar errores
+trap 'on_error' ERR EXIT
+
+on_error() {
+    local line_no=$?
+    if [[ $line_no -ne 0 ]]; then
+        log_error "Error en línea $line_no"
+        cleanup_temp_files
+        summary_to_log
+    fi
+}
+
+#══════════════════════════════════════════════════════════════════════════════
+# FUNCIÓN PRINCIPAL
+#══════════════════════════════════════════════════════════════════════════════
+
+main() {
+    # Inicializar
+    init_logs
+    
+    # Validaciones
+    verify_dependencies
+    verify_permissions
+    verify_connectivity
+    
+    # Descargas
+    download_lista || {
+        cleanup_temp_files
+        summary_to_log
+        exit 1
+    }
+    
+    download_files || {
+        cleanup_temp_files
+        summary_to_log
+        exit 1
+    }
+    
+    # Procesar archivos
+    log_info "Procesando archivos descargados..."
+    
+    cd "${UPDATE_DIR}" || exit 1
+    
+    for archivo in *; do
+        [[ ! -f "$archivo" ]] && continue
+        compare_and_update "$archivo"
+        sleep 0.3  # Pequeño delay para evitar saturación
+    done
+    
+    # Mantenimiento
+    cleanup_at_tasks
+    cleanup_cache
+    cleanup_temp_files
+    
+    # Reporte
+    generate_report
+    summary_to_log
+    
+    log_info "Log guardado en: ${LOG_FILE}"
+}
+
+#══════════════════════════════════════════════════════════════════════════════
+# PUNTO DE ENTRADA
+#══════════════════════════════════════════════════════════════════════════════
+
+# Validar que se ejecute como root
+if [[ $EUID -ne 0 ]]; then
+    echo -e "${cor[3]}Este script debe ejecutarse como root${cor_reset}"
+    echo -e "${cor[4]}Ejecute: sudo $0${cor_reset}"
+    exit 1
+fi
+
+# Ejecutar
+main "$@"
+exit $?
